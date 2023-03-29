@@ -1,0 +1,11 @@
+/k6
+/k6.exe
+
+vendor
+
+.vscode
+*.sublime-workspace
+*.log
+*.syso
+.idea
+*.DS_Store
