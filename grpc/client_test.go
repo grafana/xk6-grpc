@@ -15,10 +15,13 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"github.com/dop251/goja"
+	"github.com/golang/protobuf/ptypes/any"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.k6.io/k6/lib/testutils/httpmultibin"
+	grpcanytesting "go.k6.io/k6/lib/testutils/httpmultibin/grpc_any_testing"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -27,12 +30,11 @@ import (
 	"google.golang.org/grpc/test/grpc_testing"
 	"gopkg.in/guregu/null.v3"
 
+	"github.com/grafana/xk6-grpc/lib/netext/grpcext"
 	"go.k6.io/k6/js/modulestest"
 	"go.k6.io/k6/lib"
 	"go.k6.io/k6/lib/fsext"
-	"go.k6.io/k6/lib/netext/grpcext"
 	"go.k6.io/k6/lib/testutils"
-	"go.k6.io/k6/lib/testutils/httpmultibin"
 	"go.k6.io/k6/metrics"
 )
 
@@ -163,29 +165,29 @@ func TestClient(t *testing.T) {
 				err: "couldn't open protoset",
 			},
 		},
-		// {
-		// 	name: "LoadProtosetWrongFormat",
-		// 	initString: codeBlock{
-		// 		code: `
-		// 	var client = new grpc.Client();
-		// 	client.loadProtoset("../../../../lib/testutils/httpmultibin/grpc_protoset_testing/test_message.proto");`,
-		// 		err: "couldn't unmarshal protoset",
-		// 	},
-		// },
-		// {
-		// 	name: "LoadProtoset",
-		// 	initString: codeBlock{
-		// 		code: `
-		// 	var client = new grpc.Client();
-		// 	client.loadProtoset("../../../../lib/testutils/httpmultibin/grpc_protoset_testing/test.protoset");`,
-		// 		val: []MethodInfo{
-		// 			{
-		// 				MethodInfo: grpc.MethodInfo{Name: "Test", IsClientStream: false, IsServerStream: false},
-		// 				Package:    "grpc.protoset.testing", Service: "TestService", FullMethod: "/grpc.protoset.testing.TestService/Test",
-		// 			},
-		// 		},
-		// 	},
-		// },
+		{
+			name: "LoadProtosetWrongFormat",
+			initString: codeBlock{
+				code: `
+			var client = new grpc.Client();
+			client.loadProtoset("testdata/grpc_protoset_testing//test_message.proto");`,
+				err: "couldn't unmarshal protoset",
+			},
+		},
+		{
+			name: "LoadProtoset",
+			initString: codeBlock{
+				code: `
+			var client = new grpc.Client();
+			client.loadProtoset("testdata/grpc_protoset_testing/test.protoset");`,
+				val: []MethodInfo{
+					{
+						MethodInfo: grpc.MethodInfo{Name: "Test", IsClientStream: false, IsServerStream: false},
+						Package:    "grpc.protoset.testing", Service: "TestService", FullMethod: "/grpc.protoset.testing.TestService/Test",
+					},
+				},
+			},
+		},
 		{
 			name: "ConnectInit",
 			initString: codeBlock{
@@ -385,54 +387,54 @@ func TestClient(t *testing.T) {
 				},
 			},
 		},
-		// {
-		// 	name: "InvokeAnyProto",
-		// 	initString: codeBlock{code: `
-		// 		var client = new grpc.Client();
-		// 		client.load([], "../../../../lib/testutils/httpmultibin/grpc_any_testing/any_test.proto");`},
-		// 	setup: func(tb *httpmultibin.HTTPMultiBin) {
-		// 		tb.GRPCAnyStub.SumFunc = func(ctx context.Context, req *grpcanytesting.SumRequest) (*grpcanytesting.SumReply, error) {
-		// 			var sumRequestData grpcanytesting.SumRequestData
-		// 			if err := req.Data.UnmarshalTo(&sumRequestData); err != nil {
-		// 				return nil, err
-		// 			}
+		{
+			name: "InvokeAnyProto",
+			initString: codeBlock{code: `
+				var client = new grpc.Client();
+				client.load([], "../vendor/go.k6.io/k6/lib/testutils/httpmultibin/grpc_any_testing/any_test.proto");`},
+			setup: func(tb *httpmultibin.HTTPMultiBin) {
+				tb.GRPCAnyStub.SumFunc = func(ctx context.Context, req *grpcanytesting.SumRequest) (*grpcanytesting.SumReply, error) {
+					var sumRequestData grpcanytesting.SumRequestData
+					if err := req.Data.UnmarshalTo(&sumRequestData); err != nil {
+						return nil, err
+					}
 
-		// 			sumReplyData := &grpcanytesting.SumReplyData{
-		// 				V:   sumRequestData.A + sumRequestData.B,
-		// 				Err: "",
-		// 			}
-		// 			sumReply := &grpcanytesting.SumReply{
-		// 				Data: &any.Any{},
-		// 			}
-		// 			if err := sumReply.Data.MarshalFrom(sumReplyData); err != nil {
-		// 				return nil, err
-		// 			}
+					sumReplyData := &grpcanytesting.SumReplyData{
+						V:   sumRequestData.A + sumRequestData.B,
+						Err: "",
+					}
+					sumReply := &grpcanytesting.SumReply{
+						Data: &any.Any{},
+					}
+					if err := sumReply.Data.MarshalFrom(sumReplyData); err != nil {
+						return nil, err
+					}
 
-		// 			return sumReply, nil
-		// 		}
-		// 	},
-		// 	vuString: codeBlock{
-		// 		code: `
-		// 		client.connect("GRPCBIN_ADDR");
-		// 		var resp = client.invoke("grpc.any.testing.AnyTestService/Sum",  {
-		// 			data: {
-		// 				"@type": "type.googleapis.com/grpc.any.testing.SumRequestData",
-		// 				"a": 1,
-		// 				"b": 2,
-		// 			},
-		// 		})
-		// 		if (resp.status !== grpc.StatusOK) {
-		// 			throw new Error("unexpected error: " + JSON.stringify(resp.error) + "or status: " + resp.status)
-		// 		}
-		// 		if (resp.message.data.v !== "3") {
-		// 			throw new Error("unexpected resp message data")
-		// 		}`,
-		// 		asserts: func(t *testing.T, rb *httpmultibin.HTTPMultiBin, samples chan metrics.SampleContainer, _ error) {
-		// 			samplesBuf := metrics.GetBufferedSamples(samples)
-		// 			assertMetricEmitted(t, metrics.GRPCReqDurationName, samplesBuf, rb.Replacer.Replace("GRPCBIN_ADDR/grpc.any.testing.AnyTestService/Sum"))
-		// 		},
-		// 	},
-		// },
+					return sumReply, nil
+				}
+			},
+			vuString: codeBlock{
+				code: `
+				client.connect("GRPCBIN_ADDR");
+				var resp = client.invoke("grpc.any.testing.AnyTestService/Sum",  {
+					data: {
+						"@type": "type.googleapis.com/grpc.any.testing.SumRequestData",
+						"a": 1,
+						"b": 2,
+					},
+				})
+				if (resp.status !== grpc.StatusOK) {
+					throw new Error("unexpected error: " + JSON.stringify(resp.error) + "or status: " + resp.status)
+				}
+				if (resp.message.data.v !== "3") {
+					throw new Error("unexpected resp message data")
+				}`,
+				asserts: func(t *testing.T, rb *httpmultibin.HTTPMultiBin, samples chan metrics.SampleContainer, _ error) {
+					samplesBuf := metrics.GetBufferedSamples(samples)
+					assertMetricEmitted(t, metrics.GRPCReqDurationName, samplesBuf, rb.Replacer.Replace("GRPCBIN_ADDR/grpc.any.testing.AnyTestService/Sum"))
+				},
+			},
+		},
 		{
 			name: "RequestMessage",
 			initString: codeBlock{
