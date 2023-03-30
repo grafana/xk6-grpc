@@ -1,7 +1,6 @@
 package grpc
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,17 +13,12 @@ import (
 	"go.k6.io/k6/js/common"
 	"go.k6.io/k6/js/modules"
 	"go.k6.io/k6/metrics"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/types/dynamicpb"
 )
 
 type message struct {
-	msg *dynamicpb.Message
+	msg []byte
 }
 
 type stream struct {
@@ -34,10 +28,9 @@ type stream struct {
 	logger logrus.FieldLogger
 
 	methodDescriptor protoreflect.MethodDescriptor
-	marshaler        protojson.MarshalOptions
 
 	method string
-	stream grpc.ClientStream
+	stream *grpcext.Stream
 
 	tagsAndMeta    *metrics.TagsAndMeta
 	tq             *taskqueue.TaskQueue
@@ -159,24 +152,18 @@ func (s *stream) readData(readDataChan chan map[string]interface{}) {
 	}()
 
 	for {
-		raw, err := s.receive()
+		msg, err := s.stream.ReceiveConverted()
+		if errors.Is(err, grpcext.ErrCancelled) {
+			s.logger.Debug("stream is cancelled")
+
+			err = nil
+		}
 
 		if err != nil && !errors.Is(err, io.EOF) {
-			if errors.Is(err, errCancelled) {
-				err = nil
-			}
+			s.logger.WithError(err).Debug("error while reading from the stream")
 
 			s.tq.Queue(func() error {
 				return s.closeWithError(err)
-			})
-
-			return
-		}
-
-		msg, errConv := s.convert(raw)
-		if errConv != nil {
-			s.tq.Queue(func() error {
-				return s.closeWithError(errConv)
 			})
 
 			return
@@ -202,62 +189,6 @@ func (s *stream) readData(readDataChan chan map[string]interface{}) {
 	}
 }
 
-var errCancelled = errors.New("cancelled by client (k6)")
-
-// receive receives the message from the stream
-// if the stream has been closed successfully, it returns io.EOF
-// if the stream has been cancelled, it returns errCancelled
-func (s *stream) receive() (*dynamicpb.Message, error) {
-	msg := dynamicpb.NewMessage(s.methodDescriptor.Output())
-	err := s.stream.RecvMsg(msg)
-
-	// io.EOF means that the stream has been closed successfully
-	if err == nil || errors.Is(err, io.EOF) {
-		return msg, err
-	}
-
-	sterr := status.Convert(err)
-	if sterr.Code() == codes.Canceled {
-		return nil, errCancelled
-	}
-
-	return nil, err
-}
-
-// convert converts the message to the map[string]interface{} format
-// which could be returned to the JS
-// there is a lot of marshaling/unmarshaling here, but if we just pass the dynamic message
-// the default Marshaller would be used, which would strip any zero/default values from the JSON.
-// eg. given this message:
-//
-//	message Point {
-//	   double x = 1;
-//		  double y = 2;
-//		  double z = 3;
-//	}
-//
-// and a value like this:
-// msg := Point{X: 6, Y: 4, Z: 0}
-// would result in JSON output:
-// {"x":6,"y":4}
-// rather than the desired:
-// {"x":6,"y":4,"z":0}
-func (s *stream) convert(msg *dynamicpb.Message) (map[string]interface{}, error) {
-	raw, err := s.marshaler.Marshal(msg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal the message: %w", err)
-	}
-
-	back := make(map[string]interface{})
-
-	err = json.Unmarshal(raw, &back)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal the message: %w", err)
-	}
-
-	return back, err
-}
-
 // writeData writes data to the stream
 func (s *stream) writeData() {
 	writeChannel := make(chan message)
@@ -269,7 +200,7 @@ func (s *stream) writeData() {
 					return
 				}
 
-				err := s.stream.SendMsg(msg.msg)
+				err := s.stream.Send(msg.msg)
 				if err != nil {
 					s.logger.WithError(err).Error("failed to send data to the stream")
 
@@ -326,35 +257,18 @@ func (s *stream) on(event string, listener func(goja.Value) (goja.Value, error))
 
 // write writes a message to the stream
 func (s *stream) write(input goja.Value) {
-	msg, err := buildMessage(s.vu.Runtime(), s.methodDescriptor, input)
-	if err != nil {
-		s.vu.State().Logger.Warnf("can't build message for sending: %s", err)
-
-		return
-	}
-
-	s.writeQueueCh <- message{msg: msg}
-}
-
-var errEmptyMessage = errors.New("message is empty")
-
-// buildMessage builds a message from the input
-func buildMessage(rt *goja.Runtime, md protoreflect.MethodDescriptor, input goja.Value) (*dynamicpb.Message, error) {
 	if input == nil || goja.IsNull(input) || goja.IsUndefined(input) {
-		return nil, errEmptyMessage
+		s.logger.Warnf("can't send empty message")
 	}
+
+	rt := s.vu.Runtime()
 
 	b, err := input.ToObject(rt).MarshalJSON()
 	if err != nil {
-		return nil, fmt.Errorf("can't marshal message: %w", err)
+		s.logger.WithError(err).Warnf("can't marshal message")
 	}
 
-	msg := dynamicpb.NewMessage(md.Input())
-	if err := protojson.Unmarshal(b, msg); err != nil {
-		return nil, fmt.Errorf("can't serialise request object to protocol buffer: %w", err)
-	}
-
-	return msg, nil
+	s.writeQueueCh <- message{msg: b}
 }
 
 // end closes client the stream
