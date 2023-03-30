@@ -2,7 +2,11 @@
 package grpc
 
 import (
+	"errors"
+
 	"github.com/dop251/goja"
+	"github.com/mstoykov/k6-taskqueue-lib/taskqueue"
+	"go.k6.io/k6/js/common"
 	"go.k6.io/k6/js/modules"
 	"google.golang.org/grpc/codes"
 )
@@ -39,11 +43,13 @@ func (*RootModule) NewModuleInstance(vu modules.VU) modules.Instance {
 
 	mi.exports["Client"] = mi.NewClient
 	mi.defineConstants()
+	mi.exports["Stream"] = mi.stream
+
 	return mi
 }
 
 // NewClient is the JS constructor for the grpc Client.
-func (mi *ModuleInstance) NewClient(call goja.ConstructorCall) *goja.Object {
+func (mi *ModuleInstance) NewClient(_ goja.ConstructorCall) *goja.Object {
 	rt := mi.vu.Runtime()
 	return rt.ToValue(&Client{vu: mi.vu}).ToObject(rt)
 }
@@ -79,4 +85,65 @@ func (mi *ModuleInstance) Exports() modules.Exports {
 	return modules.Exports{
 		Named: mi.exports,
 	}
+}
+
+// stream returns a new stream object
+func (mi *ModuleInstance) stream(c goja.ConstructorCall) *goja.Object {
+	rt := mi.vu.Runtime()
+
+	client, ok := c.Argument(0).ToObject(rt).Export().(*Client)
+	if !ok {
+		common.Throw(rt, errors.New("the first argument must be a GRPC client"))
+	}
+
+	methodName := sanitizeMethodName(c.Argument(1).String())
+	methodDescriptor, err := client.getMethodDescriptor(methodName)
+	if err != nil {
+		common.Throw(rt, err)
+	}
+
+	// the third argument is the params (optional)
+	// TODO: abstract logic for parsing params
+	// should be something similar to the Invoke function
+	// in js/modules/k6/grpc/client.go
+
+	registerCallback := func() func(func() error) {
+		callback := mi.vu.RegisterCallback()
+		return func(f func() error) {
+			callback(f)
+		}
+	}
+
+	tagsAndMeta := mi.vu.State().Tags.GetCurrentValues()
+
+	s := &stream{
+		vu:               mi.vu,
+		client:           client,
+		methodDescriptor: methodDescriptor,
+		method:           methodName,
+		logger:           mi.vu.State().Logger,
+
+		tq: taskqueue.New(registerCallback),
+
+		builtinMetrics: mi.vu.State().BuiltinMetrics,
+		done:           make(chan struct{}),
+		closeSend:      make(chan struct{}),
+
+		writeQueueCh: make(chan message),
+
+		eventListeners: newEventListeners(),
+		obj:            rt.NewObject(),
+		tagsAndMeta:    &tagsAndMeta,
+	}
+
+	defineStream(rt, s)
+
+	err = s.beginStream()
+	if err != nil {
+		s.tq.Close()
+
+		common.Throw(rt, err)
+	}
+
+	return s.obj
 }

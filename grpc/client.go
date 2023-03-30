@@ -445,3 +445,33 @@ func walkFileDescriptors(seen map[string]struct{}, fd *desc.FileDescriptor) []*d
 
 	return fds
 }
+
+// sanitizeMethodName
+func sanitizeMethodName(name string) string {
+	if name == "" {
+		return name
+	}
+
+	if !strings.HasPrefix(name, "/") {
+		name = "/" + name
+	}
+
+	return name
+}
+
+// getMethodDescriptor sanitize it, and gets GRPC method descriptor or an error if not found
+func (c *Client) getMethodDescriptor(method string) (protoreflect.MethodDescriptor, error) {
+	method = sanitizeMethodName(method)
+
+	if method == "" {
+		return nil, errors.New("method to invoke cannot be empty")
+	}
+
+	methodDesc := c.mds[method]
+
+	if methodDesc == nil {
+		return nil, fmt.Errorf("method %q not found in file descriptors", method)
+	}
+
+	return methodDesc, nil
+}

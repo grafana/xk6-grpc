@@ -6,10 +6,11 @@ require (
 	github.com/dop251/goja v0.0.0-20230304130813-e2f543bf4b4c
 	github.com/golang/protobuf v1.5.3
 	github.com/jhump/protoreflect v1.15.0
+	github.com/mstoykov/k6-taskqueue-lib v0.1.0
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/afero v1.9.5
 	github.com/stretchr/testify v1.8.2
-	go.k6.io/k6 v0.43.2-0.20230404074422-e40265226b89
+	go.k6.io/k6 v0.43.2-0.20230405123423-86ab12bd4272
 	google.golang.org/grpc v1.53.0
 	google.golang.org/protobuf v1.28.2-0.20230222093303-bc1253ad3743
 	gopkg.in/guregu/null.v3 v3.5.0
@@ -52,7 +53,6 @@ require (
 	github.com/mccutchen/go-httpbin v1.1.2-0.20190116014521-c5cb2f4802fa // indirect
 	github.com/mstoykov/atlas v0.0.0-20220811071828-388f114305dd // indirect
 	github.com/mstoykov/envconfig v1.4.1-0.20220114105314-765c6d8c76f1 // indirect
-	github.com/mstoykov/k6-taskqueue-lib v0.1.0 // indirect
 	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d // indirect
 	github.com/onsi/gomega v1.27.5 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
