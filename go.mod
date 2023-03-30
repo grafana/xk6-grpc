@@ -6,6 +6,7 @@ require (
 	github.com/dop251/goja v0.0.0-20230304130813-e2f543bf4b4c
 	github.com/golang/protobuf v1.5.3
 	github.com/jhump/protoreflect v1.15.0
+	github.com/mstoykov/k6-taskqueue-lib v0.1.0
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/afero v1.9.5
 	github.com/stretchr/testify v1.8.2

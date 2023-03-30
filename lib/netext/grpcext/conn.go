@@ -34,6 +34,13 @@ type Request struct {
 	Message          []byte
 }
 
+// StreamRequest represents a gRPC stream request.
+type StreamRequest struct {
+	Method           string
+	MethodDescriptor protoreflect.MethodDescriptor
+	Handler          grpc.StreamHandler
+}
+
 // Response represents a gRPC response.
 type Response struct {
 	Message  interface{}
@@ -166,6 +173,23 @@ func (c *Conn) Invoke(
 		response.Message = msg
 	}
 	return &response, nil
+}
+
+// NewStream creates a new gRPC stream.
+func (c *Conn) NewStream(
+	ctx context.Context,
+	req StreamRequest,
+	md metadata.MD,
+	opts ...grpc.CallOption,
+) (grpc.ClientStream, error) {
+	ctx = metadata.NewOutgoingContext(ctx, md)
+
+	return c.raw.NewStream(ctx, &grpc.StreamDesc{
+		StreamName:    string(req.MethodDescriptor.Name()),
+		Handler:       req.Handler,
+		ServerStreams: req.MethodDescriptor.IsStreamingServer(),
+		ClientStreams: req.MethodDescriptor.IsStreamingClient(),
+	}, req.Method, opts...)
 }
 
 // Close closes the underhood connection.
