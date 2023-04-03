@@ -3,11 +3,13 @@ package grpc
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/dop251/goja"
 	"go.k6.io/k6/js/common"
 	"go.k6.io/k6/js/modules"
+	"go.k6.io/k6/lib"
 	"go.k6.io/k6/lib/types"
 	"go.k6.io/k6/metrics"
 	"google.golang.org/grpc/metadata"
@@ -26,7 +28,6 @@ type callParams struct {
 func newCallParams(vu modules.VU, input goja.Value) (*callParams, error) {
 	result := &callParams{
 		Metadata:    metadata.New(nil),
-		Timeout:     1 * time.Minute,
 		TagsAndMeta: vu.State().Tags.GetCurrentValues(),
 	}
 
@@ -70,4 +71,20 @@ func newCallParams(vu modules.VU, input goja.Value) (*callParams, error) {
 	}
 
 	return result, nil
+}
+
+// SetSystemTags sets the system tags for the call.
+func (p *callParams) SetSystemTags(state *lib.State, addr string, methodName string) {
+	if state.Options.SystemTags.Has(metrics.TagURL) {
+		p.TagsAndMeta.SetSystemTagOrMeta(metrics.TagURL, fmt.Sprintf("%s%s", addr, methodName))
+	}
+
+	parts := strings.Split(methodName[1:], "/")
+	p.TagsAndMeta.SetSystemTagOrMetaIfEnabled(state.Options.SystemTags, metrics.TagService, parts[0])
+	p.TagsAndMeta.SetSystemTagOrMetaIfEnabled(state.Options.SystemTags, metrics.TagMethod, parts[1])
+
+	// Only set the name system tag if the user didn't explicitly set it beforehand
+	if _, ok := p.TagsAndMeta.Tags.Get("name"); !ok {
+		p.TagsAndMeta.SetSystemTagOrMetaIfEnabled(state.Options.SystemTags, metrics.TagName, methodName)
+	}
 }

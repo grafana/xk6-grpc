@@ -12,7 +12,6 @@ import (
 	"go.k6.io/k6/js/common"
 	"go.k6.io/k6/js/modules"
 	"go.k6.io/k6/lib/types"
-	"go.k6.io/k6/metrics"
 
 	"github.com/dop251/goja"
 	"github.com/jhump/protoreflect/desc"
@@ -198,6 +197,11 @@ func (c *Client) Invoke(
 		return nil, fmt.Errorf("invalid GRPC's client.invoke() parameters: %w", err)
 	}
 
+	// k6 GRPC Invoke's default timeout is 2 minutes
+	if p.Timeout == time.Duration(0) {
+		p.Timeout = 2 * time.Minute
+	}
+
 	if req == nil {
 		return nil, errors.New("request cannot be nil")
 	}
@@ -209,17 +213,7 @@ func (c *Client) Invoke(
 	ctx, cancel := context.WithTimeout(c.vu.Context(), p.Timeout)
 	defer cancel()
 
-	if state.Options.SystemTags.Has(metrics.TagURL) {
-		p.TagsAndMeta.SetSystemTagOrMeta(metrics.TagURL, fmt.Sprintf("%s%s", c.addr, method))
-	}
-	parts := strings.Split(method[1:], "/")
-	p.TagsAndMeta.SetSystemTagOrMetaIfEnabled(state.Options.SystemTags, metrics.TagService, parts[0])
-	p.TagsAndMeta.SetSystemTagOrMetaIfEnabled(state.Options.SystemTags, metrics.TagMethod, parts[1])
-
-	// Only set the name system tag if the user didn't explicitly set it beforehand
-	if _, ok := p.TagsAndMeta.Tags.Get("name"); !ok {
-		p.TagsAndMeta.SetSystemTagOrMetaIfEnabled(state.Options.SystemTags, metrics.TagName, method)
-	}
+	p.SetSystemTags(state, c.addr, method)
 
 	reqmsg := grpcext.Request{
 		MethodDescriptor: methodDesc,

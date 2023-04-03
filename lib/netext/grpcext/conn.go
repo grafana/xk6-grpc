@@ -38,6 +38,8 @@ type Request struct {
 type StreamRequest struct {
 	Method           string
 	MethodDescriptor protoreflect.MethodDescriptor
+	TagsAndMeta      *metrics.TagsAndMeta
+	Metadata         metadata.MD
 }
 
 // Response represents a gRPC response.
@@ -178,10 +180,11 @@ func (c *Conn) Invoke(
 func (c *Conn) NewStream(
 	ctx context.Context,
 	req StreamRequest,
-	md metadata.MD,
 	opts ...grpc.CallOption,
 ) (*Stream, error) {
-	ctx = metadata.NewOutgoingContext(ctx, md)
+	ctx = metadata.NewOutgoingContext(ctx, req.Metadata)
+
+	ctx = withRPCState(ctx, &rpcState{tagsAndMeta: req.TagsAndMeta})
 
 	stream, err := c.raw.NewStream(ctx, &grpc.StreamDesc{
 		StreamName:    string(req.MethodDescriptor.Name()),

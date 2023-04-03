@@ -1,10 +1,12 @@
 package grpc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/dop251/goja"
 	"github.com/grafana/xk6-grpc/lib/netext/grpcext"
@@ -13,7 +15,6 @@ import (
 	"go.k6.io/k6/js/common"
 	"go.k6.io/k6/js/modules"
 	"go.k6.io/k6/metrics"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
@@ -51,6 +52,8 @@ type stream struct {
 	writeQueueCh chan message
 
 	eventListeners *eventListeners
+
+	timeoutCancel context.CancelFunc
 }
 
 // defineStream defines the goja.Object that is given to js to interact with the Stream
@@ -65,13 +68,24 @@ func defineStream(rt *goja.Runtime, s *stream) {
 		"end", rt.ToValue(s.end), goja.FLAG_FALSE, goja.FLAG_FALSE, goja.FLAG_TRUE))
 }
 
-func (s *stream) beginStream() error {
+func (s *stream) beginStream(p *callParams) error {
 	req := &grpcext.StreamRequest{
 		Method:           s.method,
 		MethodDescriptor: s.methodDescriptor,
+		TagsAndMeta:      &p.TagsAndMeta,
+		Metadata:         p.Metadata,
 	}
 
-	stream, err := s.client.conn.NewStream(s.vu.Context(), *req, metadata.MD{})
+	ctx := s.vu.Context()
+	var cancel context.CancelFunc
+
+	if p.Timeout != time.Duration(0) {
+		ctx, cancel = context.WithTimeout(ctx, p.Timeout)
+	}
+
+	s.timeoutCancel = cancel
+
+	stream, err := s.client.conn.NewStream(ctx, *req)
 	if err != nil {
 		return fmt.Errorf("failed to create a new stream: %w", err)
 	}
@@ -284,6 +298,10 @@ func (s *stream) closeWithError(err error) error {
 
 	s.state = closed
 	close(s.done)
+
+	if s.timeoutCancel != nil {
+		s.timeoutCancel()
+	}
 
 	s.logger.WithError(err).Debug("connection closed")
 
