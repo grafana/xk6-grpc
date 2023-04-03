@@ -23,12 +23,12 @@ type Stream struct {
 	marshaler        protojson.MarshalOptions
 }
 
-// ErrCancelled cancelled by client (k6)
-var ErrCancelled = errors.New("cancelled by client (k6)")
+// ErrCanceled canceled by client (k6)
+var ErrCanceled = errors.New("canceled by client (k6)")
 
 // ReceiveConverted receives a converted message from the stream
 // if the stream has been closed successfully, it returns io.EOF
-// if the stream has been cancelled, it returns errCancelled
+// if the stream has been cancelled, it returns ErrCanceled
 func (s *Stream) ReceiveConverted() (map[string]interface{}, error) {
 	raw, err := s.receive()
 	if err != nil && !errors.Is(err, io.EOF) {
@@ -54,7 +54,7 @@ func (s *Stream) receive() (*dynamicpb.Message, error) {
 
 	sterr := status.Convert(err)
 	if sterr.Code() == codes.Canceled {
-		return nil, ErrCancelled
+		return nil, ErrCanceled
 	}
 
 	return nil, err
@@ -79,7 +79,8 @@ func (s *Stream) receive() (*dynamicpb.Message, error) {
 // rather than the desired:
 // {"x":6,"y":4,"z":0}
 func (s *Stream) convert(msg *dynamicpb.Message) (map[string]interface{}, error) {
-	// TODO: add the test that checks that message is not nil
+	// TODO(olegbespalov): add the test that checks that message is not nil
+
 	raw, err := s.marshaler.Marshal(msg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal the message: %w", err)

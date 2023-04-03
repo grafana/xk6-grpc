@@ -6,6 +6,13 @@ import (
 	"github.com/dop251/goja"
 )
 
+const (
+	eventData   = "data"
+	eventError  = "error"
+	eventEnd    = "end"
+	eventStatus = "status"
+)
+
 // eventListeners keeps track of the eventListeners for each event type
 type eventListeners struct {
 	data   *eventListener

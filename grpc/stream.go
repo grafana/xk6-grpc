@@ -1,6 +1,7 @@
 package grpc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -79,33 +80,7 @@ func (s *stream) loop() {
 
 	ctx := s.vu.Context()
 
-	defer func() {
-		ch := make(chan struct{})
-		s.tq.Queue(func() error {
-			defer close(ch)
-			return s.closeWithError(nil)
-		})
-
-		select {
-		case <-ch:
-		case <-ctx.Done():
-			// unfortunately it is really possible that k6 has been winding down the VU and the above code
-			// to close the connection will just never be called as the event loop no longer executes the callbacks.
-			// This ultimately needs a separate signal for when the eventloop will not execute anything after this.
-			// To try to prevent leaking goroutines here we will try to figure out if we need to close the `done`
-			// channel and wait a bit and close it if it isn't. This might be better off with more mutexes
-			timer := time.NewTimer(time.Millisecond * 250)
-			select {
-			case <-s.done:
-				// everything is fine
-			case <-timer.C:
-				close(s.done) // hopefully this means we won't double close
-			}
-			timer.Stop()
-		}
-
-		s.tq.Close()
-	}()
+	defer s.loopGracefulShutdown(ctx)
 
 	// read & write data from/to the stream
 	go s.readData(readDataChan)
@@ -126,7 +101,7 @@ func (s *stream) loop() {
 
 				for _, messageListener := range listeners {
 					if _, err := messageListener(rt.ToValue(msg)); err != nil {
-						// TODO log it?
+						// TODO(olegbespalov) consider logging the error
 						_ = s.closeWithError(err)
 
 						return err
@@ -145,6 +120,34 @@ func (s *stream) loop() {
 	}
 }
 
+func (s *stream) loopGracefulShutdown(ctx context.Context) {
+	ch := make(chan struct{})
+	s.tq.Queue(func() error {
+		defer close(ch)
+		return s.closeWithError(nil)
+	})
+
+	select {
+	case <-ch:
+	case <-ctx.Done():
+		// unfortunately it is really possible that k6 has been winding down the VU and the above code
+		// to close the connection will just never be called as the event loop no longer executes the callbacks.
+		// This ultimately needs a separate signal for when the eventloop will not execute anything after this.
+		// To try to prevent leaking goroutines here we will try to figure out if we need to close the `done`
+		// channel and wait a bit and close it if it isn't. This might be better off with more mutexes
+		timer := time.NewTimer(time.Millisecond * 250)
+		select {
+		case <-s.done:
+			// everything is fine
+		case <-timer.C:
+			close(s.done) // hopefully this means we won't double close
+		}
+		timer.Stop()
+	}
+
+	s.tq.Close()
+}
+
 // readData reads data from the stream and forward them to the readDataChan
 func (s *stream) readData(readDataChan chan map[string]interface{}) {
 	defer func() {
@@ -153,7 +156,7 @@ func (s *stream) readData(readDataChan chan map[string]interface{}) {
 
 	for {
 		msg, err := s.stream.ReceiveConverted()
-		if errors.Is(err, grpcext.ErrCancelled) {
+		if errors.Is(err, grpcext.ErrCanceled) {
 			s.logger.Debug("stream is cancelled")
 
 			err = nil
@@ -171,7 +174,10 @@ func (s *stream) readData(readDataChan chan map[string]interface{}) {
 
 		// no message means that the stream has been closed
 		if len(msg) == 0 && errors.Is(err, io.EOF) {
-			_ = s.closeWithError(nil)
+			s.tq.Queue(func() error {
+				return s.closeWithError(nil)
+			})
+
 			return
 		}
 
@@ -285,7 +291,8 @@ func (s *stream) end() {
 		return
 	}
 
-	// TODO: move this ?
+	// TODO(olegbespalov): consider moving this somewhere closer to the stream closing
+	// that could happen even without calling end(), e.g. when server closes the stream
 	_ = s.callEventListeners(eventEnd)
 }
 
@@ -314,7 +321,9 @@ func (s *stream) callErrorListeners(e error) error {
 	rt := s.vu.Runtime()
 
 	for _, errorListener := range s.eventListeners.all(eventError) {
-		// TODO: :thinking: should error be wrapped in an object ?
+		// TODO(olegbespalov): consider wrapping the error into an object
+		// to provide more structure about error (like the error code and so on)
+
 		if _, err := errorListener(rt.ToValue(e)); err != nil {
 			return err
 		}

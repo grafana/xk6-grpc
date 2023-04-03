@@ -91,15 +91,11 @@ func (mi *ModuleInstance) Exports() modules.Exports {
 func (mi *ModuleInstance) stream(c goja.ConstructorCall) *goja.Object {
 	rt := mi.vu.Runtime()
 
-	// the first argument is the GRPC client
-	obj := c.Argument(0).ToObject(rt).Export()
-
-	client, ok := obj.(*Client)
+	client, ok := c.Argument(0).ToObject(rt).Export().(*Client)
 	if !ok {
 		common.Throw(rt, errors.New("the first argument must be a GRPC client"))
 	}
 
-	// the second argument is the method name
 	methodName := sanitizeMethodName(c.Argument(1).String())
 	methodDescriptor, err := client.getMethodDescriptor(methodName)
 	if err != nil {
@@ -130,9 +126,7 @@ func (mi *ModuleInstance) stream(c goja.ConstructorCall) *goja.Object {
 		tq: taskqueue.New(registerCallback),
 
 		builtinMetrics: mi.vu.State().BuiltinMetrics,
-
-		closed: false,
-		done:   make(chan struct{}),
+		done:           make(chan struct{}),
 
 		writeQueueCh: make(chan message, 10),
 
