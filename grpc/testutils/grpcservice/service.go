@@ -84,6 +84,7 @@ func NewRouteGuideServer(features ...*Feature) *RouteGuideImplementation {
 	s := &RouteGuideImplementation{
 		savedFeatures: features,
 		routeNotes:    make(map[string][]*RouteNote),
+		Logf:          log.Printf,
 	}
 	return s
 }

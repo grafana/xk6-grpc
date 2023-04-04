@@ -1,10 +1,16 @@
 import { Client, Stream } from 'k6/x/grpc';
 import { sleep } from 'k6';
 
-let client = new Client();
-client.load([], '../grpc/testutils/grpcservice/route_guide.proto');
-
 const COORD_FACTOR = 1e7;
+// to run this sample, you need to start the grpc server first.
+// to start the grpc server, run the following command in k6 repository's root:
+// go run -mod=mod examples/grpc_server/*.go
+// (golang should be installed)
+const GRPC_ADDR = __ENV.GRPC_ADDR || '127.0.0.1:10000';
+const GRPC_PROTO_PATH = __ENV.GRPC_PROTO_PATH || '../grpc/testutils/grpcservice/route_guide.proto';
+
+let client = new Client();
+client.load([], GRPC_PROTO_PATH);
 
 // a sample DB of points
 const DB = [
@@ -62,7 +68,7 @@ const DB = [
 // statistics when they are sent from the server.
 export default () => {
   if (__ITER == 0) {
-    client.connect('127.0.0.1:10000', { plaintext: true });
+    client.connect(GRPC_ADDR, { plaintext: true });
   }
 
   const stream = new Stream(client, 'main.RouteGuide/RecordRoute');
@@ -72,6 +78,10 @@ export default () => {
     console.log('Passed', stats.featureCount, 'features');
     console.log('Travelled', stats.distance, 'meters');
     console.log('It took', stats.elapsedTime, 'seconds');
+  });
+
+  stream.on('error', (err) => {
+    console.log('Stream Error: ' + err);
   });
 
   // send 5 random items
