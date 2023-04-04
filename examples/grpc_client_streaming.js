@@ -2,7 +2,7 @@ import { Client, Stream } from 'k6/x/grpc';
 import { sleep } from 'k6';
 
 let client = new Client();
-client.load([], './grpc_server/route_guide.proto');
+client.load([], '../grpc/testutils/grpcservice/route_guide.proto');
 
 const COORD_FACTOR = 1e7;
 

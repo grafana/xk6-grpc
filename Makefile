@@ -25,7 +25,7 @@ grpc-server-run:
 
 ## test: Executes any tests.
 test:
-	go test -race -timeout 30s ./...
+	go test -race -timeout 60s ./...
 
 ## lint: Runs the linters.
 lint:

@@ -2,7 +2,7 @@ import grpc from 'k6/x/grpc';
 import { check } from 'k6';
 
 let client = new grpc.Client();
-client.load([], './grpc_server/route_guide.proto');
+client.load([], '../grpc/testutils/grpcservice/route_guide.proto');
 
 // to run this sample, you need to start the grpc server first.
 // to start the grpc server, run the following command in k6 repository's root:
