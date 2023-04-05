@@ -16,7 +16,7 @@ syntax = "proto3";
 
 package main;
 
-option go_package = "./;main";
+option go_package = "./grpcservice";
 
 // FeatureExplorer is the service for exploring Features.
 // Interface exported by the server.

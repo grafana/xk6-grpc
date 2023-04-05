@@ -6,11 +6,15 @@ import { check } from 'k6';
 // go run -mod=mod examples/grpc_server/*.go
 // (golang should be installed)
 const GRPC_ADDR = __ENV.GRPC_ADDR || '127.0.0.1:10000';
+const GRPC_PROTO_PATH = __ENV.GRPC_PROTO_PATH || '../grpc/testutils/grpcservice/route_guide.proto';
 
 let client = new grpc.Client();
 
+client.load([], GRPC_PROTO_PATH);
+
 export default () => {
-  client.connect(GRPC_ADDR, { plaintext: true, reflect: true });
+  client.connect(GRPC_ADDR, { plaintext: true });
+
   const response = client.invoke('main.FeatureExplorer/GetFeature', {
     latitude: 410248224,
     longitude: -747127767,
