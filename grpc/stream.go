@@ -84,9 +84,22 @@ func (s *stream) loop() {
 	}()
 
 	// read & write data from/to the stream
-	wg.Add(2)
-	go s.readData(wg)
-	go s.writeData(wg)
+	wg.Add(3)
+	go func() {
+		defer wg.Done()
+		s.readData()
+	}()
+
+	writebuf := make(chan message)
+	go func() {
+		defer close(writebuf)
+		defer wg.Done()
+		s.writeBuffering(writebuf)
+	}()
+	go func() {
+		defer wg.Done()
+		s.writeData(writebuf)
+	}()
 
 	ctxDone := ctx.Done()
 	for {
@@ -98,6 +111,28 @@ func (s *stream) loop() {
 				return s.closeWithError(nil)
 			})
 			return
+		case <-s.done:
+			return
+		}
+	}
+}
+
+func (s *stream) writeBuffering(writeChannel chan message) {
+	queue := make([]message, 0)
+	var wch chan message
+	var msg message
+
+	for {
+		wch = nil // this way if nothing to read it will just block
+		if len(queue) > 0 {
+			msg = queue[0]
+			wch = writeChannel
+		}
+		select {
+		case msg = <-s.writeQueueCh:
+			queue = append(queue, msg)
+		case wch <- msg:
+			queue = queue[:copy(queue, queue[1:])]
 		case <-s.done:
 			return
 		}
@@ -122,9 +157,7 @@ func (s *stream) queueMessage(msg map[string]interface{}) {
 }
 
 // readData reads data from the stream and forward them to the readDataChan
-func (s *stream) readData(wg *sync.WaitGroup) {
-	defer wg.Done()
-
+func (s *stream) readData() {
 	for {
 		msg, err := s.stream.ReceiveConverted()
 
@@ -157,71 +190,36 @@ func isRegularClosing(err error) bool {
 }
 
 // writeData writes data to the stream
-func (s *stream) writeData(wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	writeChannel := make(chan message)
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for {
-			select {
-			case msg, ok := <-writeChannel:
-				if !ok {
-					return
-				}
-
-				err := s.stream.Send(msg.msg)
-				if err != nil {
-					s.logger.WithError(err).Error("failed to send data to the stream")
-
-					s.tq.Queue(func() error {
-						closeErr := s.closeWithError(err)
-						return closeErr
-					})
-					return
-				}
-			case _, ok := <-s.closeSend:
-				if !ok {
-					continue
-				}
-
-				if err := s.stream.CloseSend(); err != nil {
-					s.logger.WithError(err).Error("an error happened during stream closing")
-				}
-
-				close(s.closeSend)
-			case <-s.done:
+func (s *stream) writeData(writeChannel chan message) {
+	for {
+		select {
+		case msg, ok := <-writeChannel:
+			if !ok {
 				return
 			}
-		}
-	}()
 
-	{
-		defer func() {
-			close(writeChannel)
-		}()
+			err := s.stream.Send(msg.msg)
+			if err != nil {
+				s.logger.WithError(err).Error("failed to send data to the stream")
 
-		queue := make([]message, 0)
-		var wch chan message
-		var msg message
-
-		for {
-			wch = nil // this way if nothing to read it will just block
-			if len(queue) > 0 {
-				msg = queue[0]
-				wch = writeChannel
-			}
-			select {
-			case msg = <-s.writeQueueCh:
-				queue = append(queue, msg)
-			case wch <- msg:
-				queue = queue[:copy(queue, queue[1:])]
-
-			case <-s.done:
+				s.tq.Queue(func() error {
+					closeErr := s.closeWithError(err)
+					return closeErr
+				})
 				return
 			}
+		case _, ok := <-s.closeSend:
+			if !ok {
+				continue
+			}
+
+			if err := s.stream.CloseSend(); err != nil {
+				s.logger.WithError(err).Error("an error happened during stream closing")
+			}
+
+			close(s.closeSend)
+		case <-s.done:
+			return
 		}
 	}
 }
