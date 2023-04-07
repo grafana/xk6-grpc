@@ -127,7 +127,7 @@ func (mi *ModuleInstance) stream(c goja.ConstructorCall) *goja.Object {
 
 		builtinMetrics: mi.vu.State().BuiltinMetrics,
 		done:           make(chan struct{}),
-		closeSend:      make(chan struct{}),
+		state:          opened,
 
 		writeQueueCh: make(chan message),
 

@@ -17,9 +17,17 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
+// message is a struct that
 type message struct {
-	msg []byte
+	isClosing bool
+	msg       []byte
 }
+
+const (
+	opened = iota + 1
+	closing
+	closed
+)
 
 type stream struct {
 	vu     modules.VU
@@ -37,8 +45,8 @@ type stream struct {
 	builtinMetrics *metrics.BuiltinMetrics
 	obj            *goja.Object // the object that is given to js to interact with the stream
 
-	closeSend chan struct{}
-	done      chan struct{}
+	state int8
+	done  chan struct{}
 
 	writeQueueCh chan message
 
@@ -172,26 +180,29 @@ func (s *stream) writeData(wg *sync.WaitGroup) {
 					return
 				}
 
+				if msg.isClosing {
+					err := s.stream.CloseSend()
+					if err != nil {
+						s.logger.WithError(err).Error("an error happened during stream closing")
+					}
+
+					s.tq.Queue(func() error {
+						return s.closeWithError(err)
+					})
+
+					return
+				}
+
 				err := s.stream.Send(msg.msg)
 				if err != nil {
 					s.logger.WithError(err).Error("failed to send data to the stream")
 
 					s.tq.Queue(func() error {
-						closeErr := s.closeWithError(err)
-						return closeErr
+						return s.closeWithError(err)
 					})
+
 					return
 				}
-			case _, ok := <-s.closeSend:
-				if !ok {
-					continue
-				}
-
-				if err := s.stream.CloseSend(); err != nil {
-					s.logger.WithError(err).Error("an error happened during stream closing")
-				}
-
-				close(s.closeSend)
 			case <-s.done:
 				return
 			}
@@ -235,8 +246,13 @@ func (s *stream) on(event string, listener func(goja.Value) (goja.Value, error))
 
 // write writes a message to the stream
 func (s *stream) write(input goja.Value) {
-	if input == nil || goja.IsNull(input) || goja.IsUndefined(input) {
+	if s.state != opened {
+		return
+	}
+
+	if common.IsNullish(input) {
 		s.logger.Warnf("can't send empty message")
+		return
 	}
 
 	rt := s.vu.Runtime()
@@ -251,20 +267,12 @@ func (s *stream) write(input goja.Value) {
 
 // end closes client the stream
 func (s *stream) end() {
-	var err error
-
-	defer func() {
-		_ = s.closeWithError(err)
-	}()
-
-	// send message only once
-	select {
-	case <-s.closeSend:
+	if s.state == closed || s.state == closing {
 		return
-	default:
 	}
 
-	s.closeSend <- struct{}{}
+	s.state = closing
+	s.writeQueueCh <- message{isClosing: true}
 
 	// TODO(olegbespalov): consider moving this somewhere closer to the stream closing
 	// that could happen even without calling end(), e.g. when server closes the stream
@@ -279,6 +287,7 @@ func (s *stream) closeWithError(err error) error {
 	default:
 	}
 
+	s.state = closed
 	close(s.done)
 
 	s.logger.WithError(err).Debug("connection closed")
