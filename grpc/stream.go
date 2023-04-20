@@ -210,9 +210,7 @@ func (s *stream) writeData(wg *sync.WaitGroup) {
 	}()
 
 	{
-		defer func() {
-			close(writeChannel)
-		}()
+		defer close(writeChannel)
 
 		queue := make([]message, 0)
 		var wch chan message
@@ -280,11 +278,8 @@ func (s *stream) end() {
 }
 
 func (s *stream) closeWithError(err error) error {
-	select {
-	case <-s.done:
-		s.logger.WithError(err).Debug("connection is already closed")
+	if s.state == closed {
 		return nil
-	default:
 	}
 
 	s.state = closed

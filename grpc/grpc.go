@@ -107,13 +107,6 @@ func (mi *ModuleInstance) stream(c goja.ConstructorCall) *goja.Object {
 	// should be something similar to the Invoke function
 	// in js/modules/k6/grpc/client.go
 
-	registerCallback := func() func(func() error) {
-		callback := mi.vu.RegisterCallback()
-		return func(f func() error) {
-			callback(f)
-		}
-	}
-
 	tagsAndMeta := mi.vu.State().Tags.GetCurrentValues()
 
 	s := &stream{
@@ -123,7 +116,7 @@ func (mi *ModuleInstance) stream(c goja.ConstructorCall) *goja.Object {
 		method:           methodName,
 		logger:           mi.vu.State().Logger,
 
-		tq: taskqueue.New(registerCallback),
+		tq: taskqueue.New(mi.vu.RegisterCallback),
 
 		builtinMetrics: mi.vu.State().BuiltinMetrics,
 		done:           make(chan struct{}),
