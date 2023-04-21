@@ -345,8 +345,8 @@ go.buf.build/grpc/go/gogo/protobuf v1.4.9 h1:IaG7Rh/dtmoY1ZVJwSwyaGjQ8yb8emVMuX8
 go.buf.build/grpc/go/gogo/protobuf v1.4.9/go.mod h1:2rkC/lMWRLTLC2Bmn8BUP3ED9Kxx7FN3OHk+u7KCHDU=
 go.buf.build/grpc/go/prometheus/prometheus v1.4.4 h1:ddBWiMMWJsyqalhiUikpUwLsGZ18GqGCzsu8khG2mB4=
 go.buf.build/grpc/go/prometheus/prometheus v1.4.4/go.mod h1:QjrcwuvXQEp/Z0H21rmFvy4QTTnyWvfT5sffq/BlEJU=
-go.k6.io/k6 v0.43.2-0.20230404074422-e40265226b89 h1:aJSJixr/yPdHn7/bWP5sh1xrZMPJOjEYDgRNDS1sMbs=
-go.k6.io/k6 v0.43.2-0.20230404074422-e40265226b89/go.mod h1:Azozhj76R5Fa1pPatdrTgl7+cL5JHBTIqp4aWroBMw4=
+go.k6.io/k6 v0.43.2-0.20230405123423-86ab12bd4272 h1:ljt8asL1vKVDDbYTssH+bNlVnCAp1Sc7XUbdz6YVW5o=
+go.k6.io/k6 v0.43.2-0.20230405123423-86ab12bd4272/go.mod h1:Azozhj76R5Fa1pPatdrTgl7+cL5JHBTIqp4aWroBMw4=
 go.opencensus.io v0.21.0/go.mod h1:mSImk1erAIZhrmZN+AvHh14ztQfjbGwt4TtuofqLduU=
 go.opencensus.io v0.22.0/go.mod h1:+kGneAE2xo2IficOXnaByMWTGM9T73dGwxeWcUqIpI8=
 go.opencensus.io v0.22.2/go.mod h1:yxeiOL68Rb0Xd1ddK5vPZ/oVn4vY4Ynel7k9FzqtOIw=

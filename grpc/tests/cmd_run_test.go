@@ -38,32 +38,32 @@ func TestGRPCInputOutput(t *testing.T) {
 		outputShouldContain    []string
 		outputShouldNotContain []string
 	}{
-		// "Server streaming": {
-		// 	script: "../../examples/grpc_server_streaming.js",
-		// 	outputShouldContain: []string{
-		// 		"output: -",
-		// 		"default: 1 iterations for each of 1 VUs",
-		// 		"1 complete and 0 interrupted iterations",
-		// 		"Found feature called",
-		// 	},
-		// 	outputShouldNotContain: []string{
-		// 		"Stream Error:",
-		// 	},
-		// },
-		// "Client Streaming": {
-		// 	script: "../../examples/grpc_client_streaming.js",
-		// 	outputShouldContain: []string{
-		// 		"output: -",
-		// 		"default: 1 iterations for each of 1 VUs",
-		// 		"1 complete and 0 interrupted iterations",
-		// 		"Visiting point",
-		// 		"Finished trip with 5 points",
-		// 		"Passed 5 feature",
-		// 	},
-		// 	outputShouldNotContain: []string{
-		// 		"Stream Error:",
-		// 	},
-		// },
+		"Server streaming": {
+			script: "../../examples/grpc_server_streaming.js",
+			outputShouldContain: []string{
+				"output: -",
+				"default: 1 iterations for each of 1 VUs",
+				"1 complete and 0 interrupted iterations",
+				"Found feature called",
+			},
+			outputShouldNotContain: []string{
+				"Stream Error:",
+			},
+		},
+		"Client Streaming": {
+			script: "../../examples/grpc_client_streaming.js",
+			outputShouldContain: []string{
+				"output: -",
+				"default: 1 iterations for each of 1 VUs",
+				"1 complete and 0 interrupted iterations",
+				"Visiting point",
+				"Finished trip with 5 points",
+				"Passed 5 feature",
+			},
+			outputShouldNotContain: []string{
+				"Stream Error:",
+			},
+		},
 		"Invoke": {
 			script: "../../examples/grpc_invoke.js",
 			outputShouldContain: []string{
