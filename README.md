@@ -4,7 +4,7 @@ This extension is re-designing of the k6's GRPC module that also should bring ne
 
 The extension code copied from the original k6's GRPC module, so you could use [an original documentation](https://k6.io/docs/javascript-api/k6-net-grpc/).
 
-The new stream's functionality:
+The new stream's functionality (more examples you can find in the `examples` folder):
 
 ```javascript
 import { Stream } from 'k6/x/grpc'
