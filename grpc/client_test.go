@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"io"
 	"net/url"
 	"os"
 	"runtime"
@@ -19,6 +20,8 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.k6.io/k6/js/modulestest"
+	"go.k6.io/k6/lib/fsext"
 	"go.k6.io/k6/lib/testutils/httpmultibin"
 	grpcanytesting "go.k6.io/k6/lib/testutils/httpmultibin/grpc_any_testing"
 	"google.golang.org/grpc"
@@ -30,9 +33,7 @@ import (
 	"gopkg.in/guregu/null.v3"
 
 	"github.com/grafana/xk6-grpc/lib/netext/grpcext"
-	"go.k6.io/k6/js/modulestest"
 	"go.k6.io/k6/lib"
-	"go.k6.io/k6/lib/fsext"
 	"go.k6.io/k6/metrics"
 )
 
@@ -54,36 +55,64 @@ type testcase struct {
 	vuString   codeBlock // runs in the vu context
 }
 
+type testState struct {
+	*modulestest.Runtime
+	httpBin *httpmultibin.HTTPMultiBin
+	samples chan metrics.SampleContainer
+	logger  logrus.FieldLogger
+}
+
+func setup(t *testing.T) testState {
+	t.Helper()
+
+	tb := httpmultibin.NewHTTPMultiBin(t)
+
+	samples := make(chan metrics.SampleContainer, 1000)
+	testRuntime := modulestest.NewRuntime(t)
+
+	cwd, err := os.Getwd() //nolint:forbidigo
+	require.NoError(t, err)
+	fs := afero.NewOsFs()
+
+	if isWindows {
+		fs = fsext.NewTrimFilePathSeparatorFs(fs)
+	}
+	testRuntime.VU.InitEnvField.CWD = &url.URL{Path: cwd}
+	testRuntime.VU.InitEnvField.FileSystems = map[string]afero.Fs{"file": fs}
+
+	logger := logrus.New()
+	logger.SetLevel(logrus.InfoLevel)
+	logger.Out = io.Discard
+
+	return testState{
+		Runtime: testRuntime,
+		httpBin: tb,
+		samples: samples,
+		logger:  logger,
+	}
+}
+
+func assertResponse(t *testing.T, cb codeBlock, err error, val goja.Value, ts testState) {
+	if isWindows && cb.windowsErr != "" && err != nil {
+		err = errors.New(strings.ReplaceAll(err.Error(), cb.windowsErr, cb.err))
+	}
+	if cb.err == "" {
+		assert.NoError(t, err)
+	} else {
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), cb.err)
+	}
+	if cb.val != nil {
+		require.NotNil(t, val)
+		assert.Equal(t, cb.val, val.Export())
+	}
+	if cb.asserts != nil {
+		cb.asserts(t, ts.httpBin, ts.samples, err)
+	}
+}
+
 func TestClient(t *testing.T) {
 	t.Parallel()
-
-	type testState struct {
-		*modulestest.Runtime
-		httpBin *httpmultibin.HTTPMultiBin
-		samples chan metrics.SampleContainer
-	}
-	setup := func(t *testing.T) testState {
-		t.Helper()
-
-		tb := httpmultibin.NewHTTPMultiBin(t)
-		samples := make(chan metrics.SampleContainer, 1000)
-		testRuntime := modulestest.NewRuntime(t)
-
-		cwd, err := os.Getwd() //nolint:forbidigo
-		require.NoError(t, err)
-		fs := afero.NewOsFs()
-		if isWindows {
-			fs = fsext.NewTrimFilePathSeparatorFs(fs)
-		}
-		testRuntime.VU.InitEnvField.CWD = &url.URL{Path: cwd}
-		testRuntime.VU.InitEnvField.FileSystems = map[string]afero.Fs{"file": fs}
-
-		return testState{
-			Runtime: testRuntime,
-			httpBin: tb,
-			samples: samples,
-		}
-	}
 
 	assertMetricEmitted := func(
 		t *testing.T,
@@ -802,24 +831,6 @@ func TestClient(t *testing.T) {
 		},
 	}
 
-	assertResponse := func(t *testing.T, cb codeBlock, err error, val goja.Value, ts testState) {
-		if isWindows && cb.windowsErr != "" && err != nil {
-			err = errors.New(strings.ReplaceAll(err.Error(), cb.windowsErr, cb.err))
-		}
-		if cb.err == "" {
-			assert.NoError(t, err)
-		} else {
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), cb.err)
-		}
-		if cb.val != nil {
-			require.NotNil(t, val)
-			assert.Equal(t, cb.val, val.Export())
-		}
-		if cb.asserts != nil {
-			cb.asserts(t, ts.httpBin, ts.samples, err)
-		}
-	}
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
