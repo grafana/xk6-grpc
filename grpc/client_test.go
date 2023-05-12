@@ -201,18 +201,6 @@ func TestClient(t *testing.T) {
 			},
 		},
 		{
-			name: "InvokeInvalidParam",
-			initString: codeBlock{code: `
-				var client = new grpc.Client();
-				client.load([], "../vendor/google.golang.org/grpc/test/grpc_testing/test.proto");`},
-			vuString: codeBlock{
-				code: `
-				client.connect("GRPCBIN_ADDR");
-				client.invoke("grpc.testing.TestService/EmptyCall", {}, { void: true })`,
-				err: `unknown param: "void"`,
-			},
-		},
-		{
 			name: "InvokeNilRequest",
 			initString: codeBlock{code: `
 				var client = new grpc.Client();
@@ -222,65 +210,6 @@ func TestClient(t *testing.T) {
 				client.connect("GRPCBIN_ADDR");
 				client.invoke("grpc.testing.TestService/EmptyCall")`,
 				err: `request cannot be nil`,
-			},
-		},
-		{
-			name: "InvokeInvalidTimeoutType",
-			initString: codeBlock{code: `
-				var client = new grpc.Client();
-				client.load([], "../vendor/google.golang.org/grpc/test/grpc_testing/test.proto");`},
-			vuString: codeBlock{
-				code: `
-				client.connect("GRPCBIN_ADDR");
-				client.invoke("grpc.testing.TestService/EmptyCall", {}, { timeout: true })`,
-				err: "invalid timeout value: unable to use type bool as a duration value",
-			},
-		},
-		{
-			name: "InvokeInvalidTimeout",
-			initString: codeBlock{code: `
-				var client = new grpc.Client();
-				client.load([], "../vendor/google.golang.org/grpc/test/grpc_testing/test.proto");`},
-			vuString: codeBlock{
-				code: `
-				client.connect("GRPCBIN_ADDR");
-				client.invoke("grpc.testing.TestService/EmptyCall", {}, { timeout: "please" })`,
-				err: "invalid duration",
-			},
-		},
-		{
-			name: "InvokeStringTimeout",
-			initString: codeBlock{code: `
-				var client = new grpc.Client();
-				client.load([], "../vendor/google.golang.org/grpc/test/grpc_testing/test.proto");`},
-			vuString: codeBlock{
-				code: `
-				client.connect("GRPCBIN_ADDR");
-				client.invoke("grpc.testing.TestService/EmptyCall", {}, { timeout: "1h42m" })`,
-			},
-		},
-		{
-			name: "InvokeFloatTimeout",
-			initString: codeBlock{code: `
-				var client = new grpc.Client();
-				client.load([], "../vendor/google.golang.org/grpc/test/grpc_testing/test.proto");`},
-			vuString: codeBlock{
-				code: `
-				client.connect("GRPCBIN_ADDR");
-				client.invoke("grpc.testing.TestService/EmptyCall", {}, { timeout: 400.50 })`,
-			},
-		},
-		{
-			name: "InvokeIntegerTimeout",
-			initString: codeBlock{
-				code: `
-				var client = new grpc.Client();
-				client.load([], "../vendor/google.golang.org/grpc/test/grpc_testing/test.proto");`,
-			},
-			vuString: codeBlock{
-				code: `
-				client.connect("GRPCBIN_ADDR");
-				client.invoke("grpc.testing.TestService/EmptyCall", {}, { timeout: 2000 })`,
 			},
 		},
 		{

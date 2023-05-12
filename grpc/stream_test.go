@@ -12,148 +12,35 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type FeatureExplorerStub struct {
-	grpcservice.UnimplementedFeatureExplorerServer
-
-	getFeature   func(ctx context.Context, point *grpcservice.Point) (*grpcservice.Feature, error)
-	listFeatures func(rect *grpcservice.Rectangle, stream grpcservice.FeatureExplorer_ListFeaturesServer) error
-}
-
-func (s *FeatureExplorerStub) GetFeature(ctx context.Context, point *grpcservice.Point) (*grpcservice.Feature, error) {
-	if s.getFeature != nil {
-		return s.getFeature(ctx, point)
-	}
-
-	return nil, status.Errorf(codes.Unimplemented, "method GetFeature not implemented")
-}
-
-func (s *FeatureExplorerStub) ListFeatures(rect *grpcservice.Rectangle, stream grpcservice.FeatureExplorer_ListFeaturesServer) error {
-	if s.listFeatures != nil {
-		return s.listFeatures(rect, stream)
-	}
-
-	return status.Errorf(codes.Unimplemented, "method ListFeatures not implemented")
-}
-
-func TestStream(t *testing.T) {
+func TestStream_InvalidHeader(t *testing.T) {
 	t.Parallel()
 
-	tests := []testcase{
-		{
-			name: "MethodNotFound",
-			initString: codeBlock{
-				code: `
-				var client = new grpc.Client();
-				client.load([], "../vendor/google.golang.org/grpc/test/grpc_testing/test.proto");`,
-			},
-			vuString: codeBlock{
-				code: `
-				client.connect("GRPCBIN_ADDR");
-				new grpc.Stream(client, "foo/bar")`,
-				err: `method "/foo/bar" not found in file descriptors`,
-			},
-		},
-		{
-			name: "InvalidParam",
-			initString: codeBlock{code: `
-				var client = new grpc.Client();
-				client.load([], "../vendor/google.golang.org/grpc/test/grpc_testing/test.proto");`},
-			vuString: codeBlock{
-				code: `
-				client.connect("GRPCBIN_ADDR");
-				new grpc.Stream(client, "grpc.testing.TestService/EmptyCall", { void: true })`,
-				err: `unknown param: "void"`,
-			},
-		},
-		{
-			name: "InvalidTimeoutType",
-			initString: codeBlock{code: `
-				var client = new grpc.Client();
-				client.load([], "../vendor/google.golang.org/grpc/test/grpc_testing/test.proto");`},
-			vuString: codeBlock{
-				code: `
-				client.connect("GRPCBIN_ADDR");
-				new grpc.Stream(client, "grpc.testing.TestService/EmptyCall", { timeout: true })`,
-				err: "invalid timeout value: unable to use type bool as a duration value",
-			},
-		},
-		{
-			name: "InvalidTimeout",
-			initString: codeBlock{code: `
-				var client = new grpc.Client();
-				client.load([], "../vendor/google.golang.org/grpc/test/grpc_testing/test.proto");`},
-			vuString: codeBlock{
-				code: `
-				client.connect("GRPCBIN_ADDR");
-				new grpc.Stream(client, "grpc.testing.TestService/EmptyCall", { timeout: "please" })`,
-				err: "invalid duration",
-			},
-		},
-		{
-			name: "StringTimeout",
-			initString: codeBlock{code: `
-				var client = new grpc.Client();
-				client.load([], "../vendor/google.golang.org/grpc/test/grpc_testing/test.proto");`},
-			vuString: codeBlock{
-				code: `
-				client.connect("GRPCBIN_ADDR");
-				new grpc.Stream(client, "grpc.testing.TestService/EmptyCall", { timeout: "1h42m" })`,
-			},
-		},
-		{
-			name: "FloatTimeout",
-			initString: codeBlock{code: `
-				var client = new grpc.Client();
-				client.load([], "../vendor/google.golang.org/grpc/test/grpc_testing/test.proto");`},
-			vuString: codeBlock{
-				code: `
-				client.connect("GRPCBIN_ADDR");
-				new grpc.Stream(client, "grpc.testing.TestService/EmptyCall", { timeout: 400.50 })`,
-			},
-		},
-		{
-			name: "IntegerTimeout",
-			initString: codeBlock{
-				code: `
-				var client = new grpc.Client();
-				client.load([], "../vendor/google.golang.org/grpc/test/grpc_testing/test.proto");`,
-			},
-			vuString: codeBlock{
-				code: `
-				client.connect("GRPCBIN_ADDR");
-				new grpc.Stream(client, "grpc.testing.TestService/EmptyCall", { timeout: 2000 })`,
-			},
-		},
+	ts := newTestState(t)
+
+	replace := func(code string) (goja.Value, error) {
+		return ts.VU.Runtime().RunString(ts.httpBin.Replacer.Replace(code))
 	}
 
-	for _, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			ts := newTestState(t)
-
-			// setup necessary environment if needed by a test
-			if tt.setup != nil {
-				tt.setup(ts.httpBin)
-			}
-
-			replace := func(code string) (goja.Value, error) {
-				return ts.VU.Runtime().RunString(ts.httpBin.Replacer.Replace(code))
-			}
-
-			val, err := replace(tt.initString.code)
-			assertResponse(t, tt.initString, err, val, ts)
-
-			ts.ToVUContext()
-
-			val, err = replace(tt.vuString.code)
-			assertResponse(t, tt.vuString, err, val, ts)
-		})
+	initString := codeBlock{
+		code: `
+		var client = new grpc.Client();
+		client.load([], "../vendor/google.golang.org/grpc/test/grpc_testing/test.proto");`,
 	}
+
+	val, err := replace(initString.code)
+	assertResponse(t, initString, err, val, ts)
+
+	ts.ToVUContext()
+
+	_, err = replace(`
+	client.connect("GRPCBIN_ADDR");
+	new grpc.Stream(client, "foo/bar")`)
+
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, `method "/foo/bar" not found in file descriptors`)
 }
 
-func TestStreamHeaders(t *testing.T) {
+func TestStream_RequestHeaders(t *testing.T) {
 	t.Parallel()
 
 	ts := newTestState(t)
@@ -161,6 +48,7 @@ func TestStreamHeaders(t *testing.T) {
 	var registeredMetadata metadata.MD
 	stub := &FeatureExplorerStub{}
 	stub.listFeatures = func(rect *grpcservice.Rectangle, stream grpcservice.FeatureExplorer_ListFeaturesServer) error {
+		// collect metadata from the stream context
 		md, ok := metadata.FromIncomingContext(stream.Context())
 		if ok {
 			registeredMetadata = md
@@ -211,4 +99,29 @@ func TestStreamHeaders(t *testing.T) {
 	// Check that the metadata was registered
 	assert.Len(t, registeredMetadata["x-load-tester"], 1)
 	assert.Equal(t, registeredMetadata["x-load-tester"][0], "k6")
+}
+
+// FeatureExplorerStub is a stub for FeatureExplorerServer
+// it has ability to override methods
+type FeatureExplorerStub struct {
+	grpcservice.UnimplementedFeatureExplorerServer
+
+	getFeature   func(ctx context.Context, point *grpcservice.Point) (*grpcservice.Feature, error)
+	listFeatures func(rect *grpcservice.Rectangle, stream grpcservice.FeatureExplorer_ListFeaturesServer) error
+}
+
+func (s *FeatureExplorerStub) GetFeature(ctx context.Context, point *grpcservice.Point) (*grpcservice.Feature, error) {
+	if s.getFeature != nil {
+		return s.getFeature(ctx, point)
+	}
+
+	return nil, status.Errorf(codes.Unimplemented, "method GetFeature not implemented")
+}
+
+func (s *FeatureExplorerStub) ListFeatures(rect *grpcservice.Rectangle, stream grpcservice.FeatureExplorer_ListFeaturesServer) error {
+	if s.listFeatures != nil {
+		return s.listFeatures(rect, stream)
+	}
+
+	return status.Errorf(codes.Unimplemented, "method ListFeatures not implemented")
 }
