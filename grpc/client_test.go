@@ -4,12 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"errors"
-	"io"
-	"net/url"
-	"os"
-	"runtime"
-	"strings"
 	"testing"
 
 	"google.golang.org/grpc/reflection"
@@ -17,11 +11,7 @@ import (
 	"github.com/dop251/goja"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.k6.io/k6/js/modulestest"
-	"go.k6.io/k6/lib/fsext"
 	"go.k6.io/k6/lib/testutils/httpmultibin"
 	grpcanytesting "go.k6.io/k6/lib/testutils/httpmultibin/grpc_any_testing"
 	"google.golang.org/grpc"
@@ -30,111 +20,13 @@ import (
 	grpcstats "google.golang.org/grpc/stats"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/grpc_testing"
-	"gopkg.in/guregu/null.v3"
 
 	"github.com/grafana/xk6-grpc/lib/netext/grpcext"
-	"go.k6.io/k6/lib"
 	"go.k6.io/k6/metrics"
 )
 
-const isWindows = runtime.GOOS == "windows"
-
-// codeBlock represents an execution of a k6 script.
-type codeBlock struct {
-	code       string
-	val        interface{}
-	err        string
-	windowsErr string
-	asserts    func(*testing.T, *httpmultibin.HTTPMultiBin, chan metrics.SampleContainer, error)
-}
-
-type testcase struct {
-	name       string
-	setup      func(*httpmultibin.HTTPMultiBin)
-	initString codeBlock // runs in the init context
-	vuString   codeBlock // runs in the vu context
-}
-
-type testState struct {
-	*modulestest.Runtime
-	httpBin *httpmultibin.HTTPMultiBin
-	samples chan metrics.SampleContainer
-	logger  logrus.FieldLogger
-}
-
-func setup(t *testing.T) testState {
-	t.Helper()
-
-	tb := httpmultibin.NewHTTPMultiBin(t)
-
-	samples := make(chan metrics.SampleContainer, 1000)
-	testRuntime := modulestest.NewRuntime(t)
-
-	cwd, err := os.Getwd() //nolint:forbidigo
-	require.NoError(t, err)
-	fs := afero.NewOsFs()
-
-	if isWindows {
-		fs = fsext.NewTrimFilePathSeparatorFs(fs)
-	}
-	testRuntime.VU.InitEnvField.CWD = &url.URL{Path: cwd}
-	testRuntime.VU.InitEnvField.FileSystems = map[string]afero.Fs{"file": fs}
-
-	logger := logrus.New()
-	logger.SetLevel(logrus.InfoLevel)
-	logger.Out = io.Discard
-
-	return testState{
-		Runtime: testRuntime,
-		httpBin: tb,
-		samples: samples,
-		logger:  logger,
-	}
-}
-
-func assertResponse(t *testing.T, cb codeBlock, err error, val goja.Value, ts testState) {
-	if isWindows && cb.windowsErr != "" && err != nil {
-		err = errors.New(strings.ReplaceAll(err.Error(), cb.windowsErr, cb.err))
-	}
-	if cb.err == "" {
-		assert.NoError(t, err)
-	} else {
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), cb.err)
-	}
-	if cb.val != nil {
-		require.NotNil(t, val)
-		assert.Equal(t, cb.val, val.Export())
-	}
-	if cb.asserts != nil {
-		cb.asserts(t, ts.httpBin, ts.samples, err)
-	}
-}
-
 func TestClient(t *testing.T) {
 	t.Parallel()
-
-	assertMetricEmitted := func(
-		t *testing.T,
-		metricName string,
-		sampleContainers []metrics.SampleContainer,
-		url string,
-	) {
-		seenMetric := false
-
-		for _, sampleContainer := range sampleContainers {
-			for _, sample := range sampleContainer.GetSamples() {
-				surl, ok := sample.Tags.Get("url")
-				assert.True(t, ok)
-				if surl == url {
-					if sample.Metric.Name == metricName {
-						seenMetric = true
-					}
-				}
-			}
-		}
-		assert.True(t, seenMetric, "url %s didn't emit %s", url, metricName)
-	}
 
 	tests := []testcase{
 		{
@@ -836,11 +728,7 @@ func TestClient(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			ts := setup(t)
-
-			m, ok := New().NewModuleInstance(ts.VU).(*ModuleInstance)
-			require.True(t, ok)
-			require.NoError(t, ts.VU.Runtime().Set("grpc", m.Exports().Named))
+			ts := newTestState(t)
 
 			// setup necessary environment if needed by a test
 			if tt.setup != nil {
@@ -854,26 +742,7 @@ func TestClient(t *testing.T) {
 			val, err := replace(tt.initString.code)
 			assertResponse(t, tt.initString, err, val, ts)
 
-			registry := metrics.NewRegistry()
-			root, err := lib.NewGroup("", nil)
-			require.NoError(t, err)
-
-			state := &lib.State{
-				Group:     root,
-				Dialer:    ts.httpBin.Dialer,
-				TLSConfig: ts.httpBin.TLSClientConfig,
-				Samples:   ts.samples,
-				Options: lib.Options{
-					SystemTags: metrics.NewSystemTagSet(
-						metrics.TagName,
-						metrics.TagURL,
-					),
-					UserAgent: null.StringFrom("k6-test"),
-				},
-				BuiltinMetrics: metrics.RegisterBuiltinMetrics(registry),
-				Tags:           lib.NewVUStateTags(registry.RootTagSet()),
-			}
-			ts.MoveToVUContext(state)
+			ts.ToVUContext()
 			val, err = replace(tt.vuString.code)
 			assertResponse(t, tt.vuString, err, val, ts)
 		})

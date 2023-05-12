@@ -7,13 +7,9 @@ import (
 	"github.com/dop251/goja"
 	"github.com/grafana/xk6-grpc/grpc/testutils/grpcservice"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.k6.io/k6/lib"
-	"go.k6.io/k6/metrics"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"gopkg.in/guregu/null.v3"
 )
 
 type FeatureExplorerStub struct {
@@ -135,11 +131,7 @@ func TestStream(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			ts := setup(t)
-
-			m, ok := New().NewModuleInstance(ts.VU).(*ModuleInstance)
-			require.True(t, ok)
-			require.NoError(t, ts.VU.Runtime().Set("grpc", m.Exports().Named))
+			ts := newTestState(t)
 
 			// setup necessary environment if needed by a test
 			if tt.setup != nil {
@@ -153,27 +145,8 @@ func TestStream(t *testing.T) {
 			val, err := replace(tt.initString.code)
 			assertResponse(t, tt.initString, err, val, ts)
 
-			registry := metrics.NewRegistry()
-			root, err := lib.NewGroup("", nil)
-			require.NoError(t, err)
+			ts.ToVUContext()
 
-			state := &lib.State{
-				Group:     root,
-				Logger:    ts.logger,
-				Dialer:    ts.httpBin.Dialer,
-				TLSConfig: ts.httpBin.TLSClientConfig,
-				Samples:   ts.samples,
-				Options: lib.Options{
-					SystemTags: metrics.NewSystemTagSet(
-						metrics.TagName,
-						metrics.TagURL,
-					),
-					UserAgent: null.StringFrom("k6-test"),
-				},
-				BuiltinMetrics: metrics.RegisterBuiltinMetrics(registry),
-				Tags:           lib.NewVUStateTags(registry.RootTagSet()),
-			}
-			ts.MoveToVUContext(state)
 			val, err = replace(tt.vuString.code)
 			assertResponse(t, tt.vuString, err, val, ts)
 		})
@@ -183,11 +156,7 @@ func TestStream(t *testing.T) {
 func TestStreamHeaders(t *testing.T) {
 	t.Parallel()
 
-	ts := setup(t)
-
-	m, ok := New().NewModuleInstance(ts.VU).(*ModuleInstance)
-	require.True(t, ok)
-	require.NoError(t, ts.VU.Runtime().Set("grpc", m.Exports().Named))
+	ts := newTestState(t)
 
 	var registeredMetadata metadata.MD
 	stub := &FeatureExplorerStub{}
@@ -231,27 +200,8 @@ func TestStreamHeaders(t *testing.T) {
 	val, err := replace(initString.code)
 	assertResponse(t, initString, err, val, ts)
 
-	registry := metrics.NewRegistry()
-	root, err := lib.NewGroup("", nil)
-	require.NoError(t, err)
+	ts.ToVUContext()
 
-	state := &lib.State{
-		Group:     root,
-		Logger:    ts.logger,
-		Dialer:    ts.httpBin.Dialer,
-		TLSConfig: ts.httpBin.TLSClientConfig,
-		Samples:   ts.samples,
-		Options: lib.Options{
-			SystemTags: metrics.NewSystemTagSet(
-				metrics.TagName,
-				metrics.TagURL,
-			),
-			UserAgent: null.StringFrom("k6-test"),
-		},
-		BuiltinMetrics: metrics.RegisterBuiltinMetrics(registry),
-		Tags:           lib.NewVUStateTags(registry.RootTagSet()),
-	}
-	ts.MoveToVUContext(state)
 	val, err = replace(vuString.code)
 
 	ts.EventLoop.WaitOnRegistered()
