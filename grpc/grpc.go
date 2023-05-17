@@ -3,6 +3,7 @@ package grpc
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/dop251/goja"
 	"github.com/mstoykov/k6-taskqueue-lib/taskqueue"
@@ -91,23 +92,23 @@ func (mi *ModuleInstance) Exports() modules.Exports {
 func (mi *ModuleInstance) stream(c goja.ConstructorCall) *goja.Object {
 	rt := mi.vu.Runtime()
 
-	client, ok := c.Argument(0).ToObject(rt).Export().(*Client)
-	if !ok {
-		common.Throw(rt, errors.New("the first argument must be a GRPC client"))
+	client, err := extractClient(c.Argument(0), rt)
+	if err != nil {
+		common.Throw(rt, fmt.Errorf("invalid GRPC Stream's client: %w", err))
 	}
 
 	methodName := sanitizeMethodName(c.Argument(1).String())
 	methodDescriptor, err := client.getMethodDescriptor(methodName)
 	if err != nil {
-		common.Throw(rt, err)
+		common.Throw(rt, fmt.Errorf("invalid GRPC Stream's method: %w", err))
 	}
 
-	// the third argument is the params (optional)
-	// TODO: abstract logic for parsing params
-	// should be something similar to the Invoke function
-	// in js/modules/k6/grpc/client.go
+	p, err := newCallParams(mi.vu, c.Argument(2))
+	if err != nil {
+		common.Throw(rt, fmt.Errorf("invalid GRPC Stream's parameters: %w", err))
+	}
 
-	tagsAndMeta := mi.vu.State().Tags.GetCurrentValues()
+	p.SetSystemTags(mi.vu.State(), client.addr, methodName)
 
 	s := &stream{
 		vu:               mi.vu,
@@ -126,12 +127,12 @@ func (mi *ModuleInstance) stream(c goja.ConstructorCall) *goja.Object {
 
 		eventListeners: newEventListeners(),
 		obj:            rt.NewObject(),
-		tagsAndMeta:    &tagsAndMeta,
+		tagsAndMeta:    &p.TagsAndMeta,
 	}
 
 	defineStream(rt, s)
 
-	err = s.beginStream()
+	err = s.beginStream(p)
 	if err != nil {
 		s.tq.Close()
 
@@ -139,4 +140,22 @@ func (mi *ModuleInstance) stream(c goja.ConstructorCall) *goja.Object {
 	}
 
 	return s.obj
+}
+
+// extractClient extracts & validates a grpc.Client from a goja.Value.
+func extractClient(v goja.Value, rt *goja.Runtime) (*Client, error) {
+	if common.IsNullish(v) {
+		return nil, errors.New("empty gRPC client")
+	}
+
+	client, ok := v.ToObject(rt).Export().(*Client)
+	if !ok {
+		return nil, errors.New("not a gRPC client")
+	}
+
+	if client.conn == nil {
+		return nil, errors.New("no gRPC connection, you must call connect first")
+	}
+
+	return client, nil
 }

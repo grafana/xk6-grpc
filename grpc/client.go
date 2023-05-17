@@ -12,7 +12,6 @@ import (
 	"go.k6.io/k6/js/common"
 	"go.k6.io/k6/js/modules"
 	"go.k6.io/k6/lib/types"
-	"go.k6.io/k6/metrics"
 
 	"github.com/dop251/goja"
 	"github.com/jhump/protoreflect/desc"
@@ -20,7 +19,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -194,9 +192,14 @@ func (c *Client) Invoke(
 		return nil, fmt.Errorf("method %q not found in file descriptors", method)
 	}
 
-	p, err := c.parseInvokeParams(params)
+	p, err := newCallParams(c.vu, params)
 	if err != nil {
-		return nil, fmt.Errorf("invalid grpc.invoke() parameters: %w", err)
+		return nil, fmt.Errorf("invalid GRPC's client.invoke() parameters: %w", err)
+	}
+
+	// k6 GRPC Invoke's default timeout is 2 minutes
+	if p.Timeout == time.Duration(0) {
+		p.Timeout = 2 * time.Minute
 	}
 
 	if req == nil {
@@ -207,25 +210,10 @@ func (c *Client) Invoke(
 		return nil, fmt.Errorf("unable to serialise request object: %w", err)
 	}
 
-	md := metadata.New(nil)
-	for param, strval := range p.Metadata {
-		md.Append(param, strval)
-	}
-
 	ctx, cancel := context.WithTimeout(c.vu.Context(), p.Timeout)
 	defer cancel()
 
-	if state.Options.SystemTags.Has(metrics.TagURL) {
-		p.TagsAndMeta.SetSystemTagOrMeta(metrics.TagURL, fmt.Sprintf("%s%s", c.addr, method))
-	}
-	parts := strings.Split(method[1:], "/")
-	p.TagsAndMeta.SetSystemTagOrMetaIfEnabled(state.Options.SystemTags, metrics.TagService, parts[0])
-	p.TagsAndMeta.SetSystemTagOrMetaIfEnabled(state.Options.SystemTags, metrics.TagMethod, parts[1])
-
-	// Only set the name system tag if the user didn't explicitly set it beforehand
-	if _, ok := p.TagsAndMeta.Tags.Get("name"); !ok {
-		p.TagsAndMeta.SetSystemTagOrMetaIfEnabled(state.Options.SystemTags, metrics.TagName, method)
-	}
+	p.SetSystemTags(state, c.addr, method)
 
 	reqmsg := grpcext.Request{
 		MethodDescriptor: methodDesc,
@@ -233,7 +221,7 @@ func (c *Client) Invoke(
 		TagsAndMeta:      &p.TagsAndMeta,
 	}
 
-	return c.conn.Invoke(ctx, method, md, reqmsg)
+	return c.conn.Invoke(ctx, method, p.Metadata, reqmsg)
 }
 
 // Close will close the client gRPC connection
@@ -311,60 +299,6 @@ func (c *Client) convertToMethodInfo(fdset *descriptorpb.FileDescriptorSet) ([]M
 		return nil, err
 	}
 	return rtn, nil
-}
-
-type invokeParams struct {
-	Metadata    map[string]string
-	TagsAndMeta metrics.TagsAndMeta
-	Timeout     time.Duration
-}
-
-func (c *Client) parseInvokeParams(paramsVal goja.Value) (*invokeParams, error) {
-	result := &invokeParams{
-		Timeout:     1 * time.Minute,
-		TagsAndMeta: c.vu.State().Tags.GetCurrentValues(),
-	}
-	if paramsVal == nil || goja.IsUndefined(paramsVal) || goja.IsNull(paramsVal) {
-		return result, nil
-	}
-	rt := c.vu.Runtime()
-	params := paramsVal.ToObject(rt)
-	for _, k := range params.Keys() {
-		switch k {
-		case "headers":
-			c.vu.State().Logger.Warn("The headers property is deprecated, replace it with the metadata property, please.")
-			fallthrough
-		case "metadata":
-			result.Metadata = make(map[string]string)
-			v := params.Get(k).Export()
-			rawHeaders, ok := v.(map[string]interface{})
-			if !ok {
-				return result, errors.New("metadata must be an object with key-value pairs")
-			}
-			for hk, kv := range rawHeaders {
-				// TODO(rogchap): Should we manage a string slice?
-				strval, ok := kv.(string)
-				if !ok {
-					return result, fmt.Errorf("metadata %q value must be a string", hk)
-				}
-				result.Metadata[hk] = strval
-			}
-		case "tags":
-			if err := common.ApplyCustomUserTags(rt, &result.TagsAndMeta, params.Get(k)); err != nil {
-				return result, fmt.Errorf("metric tags: %w", err)
-			}
-		case "timeout":
-			var err error
-			v := params.Get(k).Export()
-			result.Timeout, err = types.GetDurationValue(v)
-			if err != nil {
-				return result, fmt.Errorf("invalid timeout value: %w", err)
-			}
-		default:
-			return result, fmt.Errorf("unknown param: %q", k)
-		}
-	}
-	return result, nil
 }
 
 type connectParams struct {

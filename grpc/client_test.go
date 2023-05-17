@@ -4,12 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"errors"
-	"io"
-	"net/url"
-	"os"
-	"runtime"
-	"strings"
 	"testing"
 
 	"google.golang.org/grpc/reflection"
@@ -17,9 +11,7 @@ import (
 	"github.com/dop251/goja"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"go.k6.io/k6/lib/testutils/httpmultibin"
 	grpcanytesting "go.k6.io/k6/lib/testutils/httpmultibin/grpc_any_testing"
 	"google.golang.org/grpc"
@@ -28,86 +20,13 @@ import (
 	grpcstats "google.golang.org/grpc/stats"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/grpc_testing"
-	"gopkg.in/guregu/null.v3"
 
 	"github.com/grafana/xk6-grpc/lib/netext/grpcext"
-	"go.k6.io/k6/js/modulestest"
-	"go.k6.io/k6/lib"
-	"go.k6.io/k6/lib/fsext"
-	"go.k6.io/k6/lib/testutils"
 	"go.k6.io/k6/metrics"
 )
 
-const isWindows = runtime.GOOS == "windows"
-
-// codeBlock represents an execution of a k6 script.
-type codeBlock struct {
-	code       string
-	val        interface{}
-	err        string
-	windowsErr string
-	asserts    func(*testing.T, *httpmultibin.HTTPMultiBin, chan metrics.SampleContainer, error)
-}
-
-type testcase struct {
-	name       string
-	setup      func(*httpmultibin.HTTPMultiBin)
-	initString codeBlock // runs in the init context
-	vuString   codeBlock // runs in the vu context
-}
-
 func TestClient(t *testing.T) {
 	t.Parallel()
-
-	type testState struct {
-		*modulestest.Runtime
-		httpBin *httpmultibin.HTTPMultiBin
-		samples chan metrics.SampleContainer
-	}
-	setup := func(t *testing.T) testState {
-		t.Helper()
-
-		tb := httpmultibin.NewHTTPMultiBin(t)
-		samples := make(chan metrics.SampleContainer, 1000)
-		testRuntime := modulestest.NewRuntime(t)
-
-		cwd, err := os.Getwd() //nolint:forbidigo
-		require.NoError(t, err)
-		fs := afero.NewOsFs()
-		if isWindows {
-			fs = fsext.NewTrimFilePathSeparatorFs(fs)
-		}
-		testRuntime.VU.InitEnvField.CWD = &url.URL{Path: cwd}
-		testRuntime.VU.InitEnvField.FileSystems = map[string]afero.Fs{"file": fs}
-
-		return testState{
-			Runtime: testRuntime,
-			httpBin: tb,
-			samples: samples,
-		}
-	}
-
-	assertMetricEmitted := func(
-		t *testing.T,
-		metricName string,
-		sampleContainers []metrics.SampleContainer,
-		url string,
-	) {
-		seenMetric := false
-
-		for _, sampleContainer := range sampleContainers {
-			for _, sample := range sampleContainer.GetSamples() {
-				surl, ok := sample.Tags.Get("url")
-				assert.True(t, ok)
-				if surl == url {
-					if sample.Metric.Name == metricName {
-						seenMetric = true
-					}
-				}
-			}
-		}
-		assert.True(t, seenMetric, "url %s didn't emit %s", url, metricName)
-	}
 
 	tests := []testcase{
 		{
@@ -282,18 +201,6 @@ func TestClient(t *testing.T) {
 			},
 		},
 		{
-			name: "InvokeInvalidParam",
-			initString: codeBlock{code: `
-				var client = new grpc.Client();
-				client.load([], "../vendor/google.golang.org/grpc/test/grpc_testing/test.proto");`},
-			vuString: codeBlock{
-				code: `
-				client.connect("GRPCBIN_ADDR");
-				client.invoke("grpc.testing.TestService/EmptyCall", {}, { void: true })`,
-				err: `unknown param: "void"`,
-			},
-		},
-		{
 			name: "InvokeNilRequest",
 			initString: codeBlock{code: `
 				var client = new grpc.Client();
@@ -303,65 +210,6 @@ func TestClient(t *testing.T) {
 				client.connect("GRPCBIN_ADDR");
 				client.invoke("grpc.testing.TestService/EmptyCall")`,
 				err: `request cannot be nil`,
-			},
-		},
-		{
-			name: "InvokeInvalidTimeoutType",
-			initString: codeBlock{code: `
-				var client = new grpc.Client();
-				client.load([], "../vendor/google.golang.org/grpc/test/grpc_testing/test.proto");`},
-			vuString: codeBlock{
-				code: `
-				client.connect("GRPCBIN_ADDR");
-				client.invoke("grpc.testing.TestService/EmptyCall", {}, { timeout: true })`,
-				err: "invalid timeout value: unable to use type bool as a duration value",
-			},
-		},
-		{
-			name: "InvokeInvalidTimeout",
-			initString: codeBlock{code: `
-				var client = new grpc.Client();
-				client.load([], "../vendor/google.golang.org/grpc/test/grpc_testing/test.proto");`},
-			vuString: codeBlock{
-				code: `
-				client.connect("GRPCBIN_ADDR");
-				client.invoke("grpc.testing.TestService/EmptyCall", {}, { timeout: "please" })`,
-				err: "invalid duration",
-			},
-		},
-		{
-			name: "InvokeStringTimeout",
-			initString: codeBlock{code: `
-				var client = new grpc.Client();
-				client.load([], "../vendor/google.golang.org/grpc/test/grpc_testing/test.proto");`},
-			vuString: codeBlock{
-				code: `
-				client.connect("GRPCBIN_ADDR");
-				client.invoke("grpc.testing.TestService/EmptyCall", {}, { timeout: "1h42m" })`,
-			},
-		},
-		{
-			name: "InvokeFloatTimeout",
-			initString: codeBlock{code: `
-				var client = new grpc.Client();
-				client.load([], "../vendor/google.golang.org/grpc/test/grpc_testing/test.proto");`},
-			vuString: codeBlock{
-				code: `
-				client.connect("GRPCBIN_ADDR");
-				client.invoke("grpc.testing.TestService/EmptyCall", {}, { timeout: 400.50 })`,
-			},
-		},
-		{
-			name: "InvokeIntegerTimeout",
-			initString: codeBlock{
-				code: `
-				var client = new grpc.Client();
-				client.load([], "../vendor/google.golang.org/grpc/test/grpc_testing/test.proto");`,
-			},
-			vuString: codeBlock{
-				code: `
-				client.connect("GRPCBIN_ADDR");
-				client.invoke("grpc.testing.TestService/EmptyCall", {}, { timeout: 2000 })`,
 			},
 		},
 		{
@@ -804,34 +652,12 @@ func TestClient(t *testing.T) {
 		},
 	}
 
-	assertResponse := func(t *testing.T, cb codeBlock, err error, val goja.Value, ts testState) {
-		if isWindows && cb.windowsErr != "" && err != nil {
-			err = errors.New(strings.ReplaceAll(err.Error(), cb.windowsErr, cb.err))
-		}
-		if cb.err == "" {
-			assert.NoError(t, err)
-		} else {
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), cb.err)
-		}
-		if cb.val != nil {
-			require.NotNil(t, val)
-			assert.Equal(t, cb.val, val.Export())
-		}
-		if cb.asserts != nil {
-			cb.asserts(t, ts.httpBin, ts.samples, err)
-		}
-	}
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			ts := setup(t)
-
-			m, ok := New().NewModuleInstance(ts.VU).(*ModuleInstance)
-			require.True(t, ok)
-			require.NoError(t, ts.VU.Runtime().Set("grpc", m.Exports().Named))
+			ts := newTestState(t)
 
 			// setup necessary environment if needed by a test
 			if tt.setup != nil {
@@ -845,26 +671,7 @@ func TestClient(t *testing.T) {
 			val, err := replace(tt.initString.code)
 			assertResponse(t, tt.initString, err, val, ts)
 
-			registry := metrics.NewRegistry()
-			root, err := lib.NewGroup("", nil)
-			require.NoError(t, err)
-
-			state := &lib.State{
-				Group:     root,
-				Dialer:    ts.httpBin.Dialer,
-				TLSConfig: ts.httpBin.TLSClientConfig,
-				Samples:   ts.samples,
-				Options: lib.Options{
-					SystemTags: metrics.NewSystemTagSet(
-						metrics.TagName,
-						metrics.TagURL,
-					),
-					UserAgent: null.StringFrom("k6-test"),
-				},
-				BuiltinMetrics: metrics.RegisterBuiltinMetrics(registry),
-				Tags:           lib.NewVUStateTags(registry.RootTagSet()),
-			}
-			ts.MoveToVUContext(state)
+			ts.ToVUContext()
 			val, err = replace(tt.vuString.code)
 			assertResponse(t, tt.vuString, err, val, ts)
 		})
@@ -942,41 +749,4 @@ func TestDebugStat(t *testing.T) {
 			assert.Contains(t, b.String(), tt.expected)
 		})
 	}
-}
-
-func TestClientInvokeHeadersDeprecated(t *testing.T) {
-	t.Parallel()
-
-	registry := metrics.NewRegistry()
-
-	logHook := &testutils.SimpleLogrusHook{
-		HookedLevels: []logrus.Level{logrus.WarnLevel},
-	}
-	testLog := logrus.New()
-	testLog.AddHook(logHook)
-	testLog.SetOutput(io.Discard)
-
-	rt := goja.New()
-	c := Client{
-		vu: &modulestest.VU{
-			StateField: &lib.State{
-				BuiltinMetrics: metrics.RegisterBuiltinMetrics(registry),
-				Logger:         testLog,
-				Tags:           lib.NewVUStateTags(registry.RootTagSet()),
-			},
-			RuntimeField: rt,
-		},
-	}
-
-	params := rt.ToValue(map[string]interface{}{
-		"headers": map[string]interface{}{
-			"X-HEADER-FOO": "bar",
-		},
-	})
-	_, err := c.parseInvokeParams(params)
-	require.NoError(t, err)
-
-	entries := logHook.Drain()
-	require.Len(t, entries, 1)
-	require.Contains(t, entries[0].Message, "headers property is deprecated")
 }
