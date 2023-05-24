@@ -72,10 +72,11 @@ func defineStream(rt *goja.Runtime, s *stream) {
 }
 
 func (s *stream) beginStream(p *callParams) error {
+	tags := s.vu.State().Tags.GetCurrentValues()
 	req := &grpcext.StreamRequest{
 		Method:           s.method,
 		MethodDescriptor: s.methodDescriptor,
-		TagsAndMeta:      &p.TagsAndMeta,
+		TagsAndMeta:      &tags,
 		Metadata:         p.Metadata,
 	}
 
