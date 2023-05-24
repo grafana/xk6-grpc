@@ -41,10 +41,13 @@ type stream struct {
 	method string
 	stream *grpcext.Stream
 
-	tagsAndMeta    *metrics.TagsAndMeta
-	tq             *taskqueue.TaskQueue
+	tagsAndMeta *metrics.TagsAndMeta
+	tq          *taskqueue.TaskQueue
+
+	grpcMetrics    *grpcMetrics
 	builtinMetrics *metrics.BuiltinMetrics
-	obj            *goja.Object // the object that is given to js to interact with the stream
+
+	obj *goja.Object // the object that is given to js to interact with the stream
 
 	state int8
 	done  chan struct{}
@@ -90,6 +93,15 @@ func (s *stream) beginStream(p *callParams) error {
 		return fmt.Errorf("failed to create a new stream: %w", err)
 	}
 	s.stream = stream
+	metrics.PushIfNotDone(s.vu.Context(), s.vu.State().Samples, metrics.Sample{
+		TimeSeries: metrics.TimeSeries{
+			Metric: s.grpcMetrics.GRPCStreams,
+			Tags:   s.tagsAndMeta.Tags,
+		},
+		Time:     time.Now(),
+		Metadata: s.tagsAndMeta.Metadata,
+		Value:    1,
+	})
 
 	go s.loop()
 
@@ -127,7 +139,19 @@ func (s *stream) loop() {
 }
 
 func (s *stream) queueMessage(msg map[string]interface{}) {
+	time := time.Now()
+
 	s.tq.Queue(func() error {
+		metrics.PushIfNotDone(s.vu.Context(), s.vu.State().Samples, metrics.Sample{
+			TimeSeries: metrics.TimeSeries{
+				Metric: s.grpcMetrics.GRPCStreamsMessagesReceived,
+				Tags:   s.tagsAndMeta.Tags,
+			},
+			Time:     time,
+			Metadata: s.tagsAndMeta.Metadata,
+			Value:    1,
+		})
+
 		rt := s.vu.Runtime()
 		listeners := s.eventListeners.all(eventData)
 
@@ -217,6 +241,16 @@ func (s *stream) writeData(wg *sync.WaitGroup) {
 
 					return
 				}
+
+				metrics.PushIfNotDone(s.vu.Context(), s.vu.State().Samples, metrics.Sample{
+					TimeSeries: metrics.TimeSeries{
+						Metric: s.grpcMetrics.GRPCStreamsMessagesSent,
+						Tags:   s.tagsAndMeta.Tags,
+					},
+					Time:     time.Now(),
+					Metadata: s.tagsAndMeta.Metadata,
+					Value:    1,
+				})
 			case <-s.done:
 				return
 			}
