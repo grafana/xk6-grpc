@@ -44,8 +44,8 @@ type stream struct {
 	tagsAndMeta *metrics.TagsAndMeta
 	tq          *taskqueue.TaskQueue
 
-	grpcMetrics    *grpcMetrics
-	builtinMetrics *metrics.BuiltinMetrics
+	instanceMetrics *instanceMetrics
+	builtinMetrics  *metrics.BuiltinMetrics
 
 	obj *goja.Object // the object that is given to js to interact with the stream
 
@@ -96,7 +96,7 @@ func (s *stream) beginStream(p *callParams) error {
 	s.stream = stream
 	metrics.PushIfNotDone(s.vu.Context(), s.vu.State().Samples, metrics.Sample{
 		TimeSeries: metrics.TimeSeries{
-			Metric: s.grpcMetrics.GRPCStreams,
+			Metric: s.instanceMetrics.Streams,
 			Tags:   s.tagsAndMeta.Tags,
 		},
 		Time:     time.Now(),
@@ -140,19 +140,17 @@ func (s *stream) loop() {
 }
 
 func (s *stream) queueMessage(msg map[string]interface{}) {
-	time := time.Now()
+	metrics.PushIfNotDone(s.vu.Context(), s.vu.State().Samples, metrics.Sample{
+		TimeSeries: metrics.TimeSeries{
+			Metric: s.instanceMetrics.StreamsMessagesReceived,
+			Tags:   s.tagsAndMeta.Tags,
+		},
+		Time:     time.Now(),
+		Metadata: s.tagsAndMeta.Metadata,
+		Value:    1,
+	})
 
 	s.tq.Queue(func() error {
-		metrics.PushIfNotDone(s.vu.Context(), s.vu.State().Samples, metrics.Sample{
-			TimeSeries: metrics.TimeSeries{
-				Metric: s.grpcMetrics.GRPCStreamsMessagesReceived,
-				Tags:   s.tagsAndMeta.Tags,
-			},
-			Time:     time,
-			Metadata: s.tagsAndMeta.Metadata,
-			Value:    1,
-		})
-
 		rt := s.vu.Runtime()
 		listeners := s.eventListeners.all(eventData)
 
@@ -245,7 +243,7 @@ func (s *stream) writeData(wg *sync.WaitGroup) {
 
 				metrics.PushIfNotDone(s.vu.Context(), s.vu.State().Samples, metrics.Sample{
 					TimeSeries: metrics.TimeSeries{
-						Metric: s.grpcMetrics.GRPCStreamsMessagesSent,
+						Metric: s.instanceMetrics.StreamsMessagesSent,
 						Tags:   s.tagsAndMeta.Tags,
 					},
 					Time:     time.Now(),

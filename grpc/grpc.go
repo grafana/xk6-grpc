@@ -21,7 +21,7 @@ type (
 	ModuleInstance struct {
 		vu      modules.VU
 		exports map[string]interface{}
-		metrics *grpcMetrics
+		metrics *instanceMetrics
 	}
 )
 
@@ -126,10 +126,10 @@ func (mi *ModuleInstance) stream(c goja.ConstructorCall) *goja.Object {
 
 		tq: taskqueue.New(mi.vu.RegisterCallback),
 
-		grpcMetrics:    mi.metrics,
-		builtinMetrics: mi.vu.State().BuiltinMetrics,
-		done:           make(chan struct{}),
-		state:          opened,
+		instanceMetrics: mi.metrics,
+		builtinMetrics:  mi.vu.State().BuiltinMetrics,
+		done:            make(chan struct{}),
+		state:           opened,
 
 		writeQueueCh: make(chan message),
 
