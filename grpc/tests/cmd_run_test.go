@@ -48,6 +48,7 @@ func TestGRPCInputOutput(t *testing.T) {
 				"grpc_streams",
 				"grpc_streams_msgs_received",
 				"grpc_streams_msgs_sent",
+				"All done",
 			},
 			outputShouldNotContain: []string{
 				"Stream Error:",
@@ -65,6 +66,7 @@ func TestGRPCInputOutput(t *testing.T) {
 				"grpc_streams",
 				"grpc_streams_msgs_received",
 				"grpc_streams_msgs_sent",
+				"All done",
 			},
 			outputShouldNotContain: []string{
 				"Stream Error:",

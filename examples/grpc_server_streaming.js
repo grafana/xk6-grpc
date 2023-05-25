@@ -32,6 +32,7 @@ export default () => {
   stream.on('end', function () {
     // The server has finished sending
     client.close();
+    console.log('All done');
   });
 
   stream.on('error', function (e) {

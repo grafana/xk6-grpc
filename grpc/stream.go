@@ -318,10 +318,6 @@ func (s *stream) end() {
 
 	s.state = closing
 	s.writeQueueCh <- message{isClosing: true}
-
-	// TODO(olegbespalov): consider moving this somewhere closer to the stream closing
-	// that could happen even without calling end(), e.g. when server closes the stream
-	_ = s.callEventListeners(eventEnd)
 }
 
 func (s *stream) closeWithError(err error) error {
@@ -331,6 +327,9 @@ func (s *stream) closeWithError(err error) error {
 
 	s.state = closed
 	close(s.done)
+	s.tq.Queue(func() error {
+		return s.callEventListeners(eventEnd)
+	})
 
 	if s.timeoutCancel != nil {
 		s.timeoutCancel()

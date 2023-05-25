@@ -84,6 +84,11 @@ export default () => {
     console.log('Stream Error: ' + err);
   });
 
+  stream.on('end', () => {
+    client.close();
+    console.log('All done');
+  })
+
   // send 5 random items
   for (var i = 0; i < 5; i++) {
     let point = DB[Math.floor(Math.random() * DB.length)];
