@@ -25,8 +25,8 @@ issues:
        - funlen
        - lll
    - linters:
-     - paralleltest # false positive: https://github.com/kunwardeep/paralleltest/issues/8.
-     text: "does not use range value in test Run"
+     - staticcheck
+     text: "The entire proto file grpc/reflection/v1alpha/reflection.proto is marked as deprecated."
    - linters:
      - forbidigo
      text: 'use of `os\.(SyscallError|Signal|Interrupt)` forbidden'
