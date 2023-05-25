@@ -21,6 +21,7 @@ type (
 	ModuleInstance struct {
 		vu      modules.VU
 		exports map[string]interface{}
+		metrics *instanceMetrics
 	}
 )
 
@@ -37,9 +38,15 @@ func New() *RootModule {
 // NewModuleInstance implements the modules.Module interface to return
 // a new instance for each VU.
 func (*RootModule) NewModuleInstance(vu modules.VU) modules.Instance {
+	metrics, err := registerMetrics(vu.InitEnv().Registry)
+	if err != nil {
+		common.Throw(vu.Runtime(), fmt.Errorf("failed to register GRPC module metrics: %w", err))
+	}
+
 	mi := &ModuleInstance{
 		vu:      vu,
 		exports: make(map[string]interface{}),
+		metrics: metrics,
 	}
 
 	mi.exports["Client"] = mi.NewClient
@@ -119,9 +126,10 @@ func (mi *ModuleInstance) stream(c goja.ConstructorCall) *goja.Object {
 
 		tq: taskqueue.New(mi.vu.RegisterCallback),
 
-		builtinMetrics: mi.vu.State().BuiltinMetrics,
-		done:           make(chan struct{}),
-		state:          opened,
+		instanceMetrics: mi.metrics,
+		builtinMetrics:  mi.vu.State().BuiltinMetrics,
+		done:            make(chan struct{}),
+		state:           opened,
 
 		writeQueueCh: make(chan message),
 

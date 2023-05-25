@@ -45,6 +45,9 @@ func TestGRPCInputOutput(t *testing.T) {
 				"default: 1 iterations for each of 1 VUs",
 				"1 complete and 0 interrupted iterations",
 				"Found feature called",
+				"grpc_streams",
+				"grpc_streams_msgs_received",
+				"grpc_streams_msgs_sent",
 			},
 			outputShouldNotContain: []string{
 				"Stream Error:",
@@ -59,6 +62,9 @@ func TestGRPCInputOutput(t *testing.T) {
 				"Visiting point",
 				"Finished trip with 5 points",
 				"Passed 5 feature",
+				"grpc_streams",
+				"grpc_streams_msgs_received",
+				"grpc_streams_msgs_sent",
 			},
 			outputShouldNotContain: []string{
 				"Stream Error:",
@@ -72,7 +78,11 @@ func TestGRPCInputOutput(t *testing.T) {
 				"1 complete and 0 interrupted iterations",
 				"3 Hasta Way, Newton, NJ 07860, USA",
 			},
-			outputShouldNotContain: []string{},
+			outputShouldNotContain: []string{
+				"grpc_streams",
+				"grpc_streams_msgs_received",
+				"grpc_streams_msgs_sent",
+			},
 		},
 		"Reflection": {
 			script: "../../examples/grpc_reflection.js",
@@ -82,7 +92,11 @@ func TestGRPCInputOutput(t *testing.T) {
 				"1 complete and 0 interrupted iterations",
 				"3 Hasta Way, Newton, NJ 07860, USA",
 			},
-			outputShouldNotContain: []string{},
+			outputShouldNotContain: []string{
+				"grpc_streams",
+				"grpc_streams_msgs_received",
+				"grpc_streams_msgs_sent",
+			},
 		},
 	}
 

@@ -41,10 +41,13 @@ type stream struct {
 	method string
 	stream *grpcext.Stream
 
-	tagsAndMeta    *metrics.TagsAndMeta
-	tq             *taskqueue.TaskQueue
-	builtinMetrics *metrics.BuiltinMetrics
-	obj            *goja.Object // the object that is given to js to interact with the stream
+	tagsAndMeta *metrics.TagsAndMeta
+	tq          *taskqueue.TaskQueue
+
+	instanceMetrics *instanceMetrics
+	builtinMetrics  *metrics.BuiltinMetrics
+
+	obj *goja.Object // the object that is given to js to interact with the stream
 
 	state int8
 	done  chan struct{}
@@ -69,10 +72,11 @@ func defineStream(rt *goja.Runtime, s *stream) {
 }
 
 func (s *stream) beginStream(p *callParams) error {
+	tags := s.vu.State().Tags.GetCurrentValues()
 	req := &grpcext.StreamRequest{
 		Method:           s.method,
 		MethodDescriptor: s.methodDescriptor,
-		TagsAndMeta:      &p.TagsAndMeta,
+		TagsAndMeta:      &tags,
 		Metadata:         p.Metadata,
 	}
 
@@ -90,6 +94,15 @@ func (s *stream) beginStream(p *callParams) error {
 		return fmt.Errorf("failed to create a new stream: %w", err)
 	}
 	s.stream = stream
+	metrics.PushIfNotDone(s.vu.Context(), s.vu.State().Samples, metrics.Sample{
+		TimeSeries: metrics.TimeSeries{
+			Metric: s.instanceMetrics.Streams,
+			Tags:   s.tagsAndMeta.Tags,
+		},
+		Time:     time.Now(),
+		Metadata: s.tagsAndMeta.Metadata,
+		Value:    1,
+	})
 
 	go s.loop()
 
@@ -127,6 +140,16 @@ func (s *stream) loop() {
 }
 
 func (s *stream) queueMessage(msg map[string]interface{}) {
+	metrics.PushIfNotDone(s.vu.Context(), s.vu.State().Samples, metrics.Sample{
+		TimeSeries: metrics.TimeSeries{
+			Metric: s.instanceMetrics.StreamsMessagesReceived,
+			Tags:   s.tagsAndMeta.Tags,
+		},
+		Time:     time.Now(),
+		Metadata: s.tagsAndMeta.Metadata,
+		Value:    1,
+	})
+
 	s.tq.Queue(func() error {
 		rt := s.vu.Runtime()
 		listeners := s.eventListeners.all(eventData)
@@ -217,6 +240,16 @@ func (s *stream) writeData(wg *sync.WaitGroup) {
 
 					return
 				}
+
+				metrics.PushIfNotDone(s.vu.Context(), s.vu.State().Samples, metrics.Sample{
+					TimeSeries: metrics.TimeSeries{
+						Metric: s.instanceMetrics.StreamsMessagesSent,
+						Tags:   s.tagsAndMeta.Tags,
+					},
+					Time:     time.Now(),
+					Metadata: s.tagsAndMeta.Metadata,
+					Value:    1,
+				})
 			case <-s.done:
 				return
 			}
