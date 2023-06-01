@@ -8,12 +8,12 @@ require (
 	github.com/jhump/protoreflect v1.15.1
 	github.com/mstoykov/k6-taskqueue-lib v0.1.0
 	github.com/sirupsen/logrus v1.9.0
-	github.com/spf13/afero v1.9.5
+	github.com/spf13/afero v1.1.2
 	github.com/stretchr/testify v1.8.2
 	go.k6.io/k6 v0.44.2-0.20230524054758-add1a5fe5019
 	google.golang.org/grpc v1.55.0
 	google.golang.org/protobuf v1.30.0
-	gopkg.in/guregu/null.v3 v3.5.0
+	gopkg.in/guregu/null.v3 v3.3.0
 )
 
 require (
