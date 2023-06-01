@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"runtime"
+	"sync"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -38,9 +39,43 @@ type testcase struct {
 
 type testState struct {
 	*modulestest.Runtime
-	httpBin *httpmultibin.HTTPMultiBin
-	samples chan metrics.SampleContainer
-	logger  logrus.FieldLogger
+	httpBin      *httpmultibin.HTTPMultiBin
+	samples      chan metrics.SampleContainer
+	logger       logrus.FieldLogger
+	callRecorder *callRecorder
+}
+
+// callRecorder a helper type that records all calls
+type callRecorder struct {
+	sync.Mutex
+	calls []string
+}
+
+// Call records a call
+func (r *callRecorder) Call(text string) {
+	r.Lock()
+	defer r.Unlock()
+
+	r.calls = append(r.calls, text)
+}
+
+// Len just returns the length of the calls
+func (r *callRecorder) Len() int {
+	r.Lock()
+	defer r.Unlock()
+
+	return len(r.calls)
+}
+
+// Recorded returns the recorded calls
+func (r *callRecorder) Recorded() []string {
+	r.Lock()
+	defer r.Unlock()
+
+	result := []string{}
+	result = append(result, r.calls...)
+
+	return result
 }
 
 // newTestState creates a new test state.
@@ -66,16 +101,22 @@ func newTestState(t *testing.T) testState {
 	logger.SetLevel(logrus.InfoLevel)
 	logger.Out = io.Discard
 
+	recorder := &callRecorder{
+		calls: make([]string, 0),
+	}
+
 	ts := testState{
-		Runtime: testRuntime,
-		httpBin: tb,
-		samples: samples,
-		logger:  logger,
+		Runtime:      testRuntime,
+		httpBin:      tb,
+		samples:      samples,
+		logger:       logger,
+		callRecorder: recorder,
 	}
 
 	m, ok := New().NewModuleInstance(ts.VU).(*ModuleInstance)
 	require.True(t, ok)
 	require.NoError(t, ts.VU.Runtime().Set("grpc", m.Exports().Named))
+	require.NoError(t, ts.VU.Runtime().Set("call", recorder.Call))
 
 	return ts
 }

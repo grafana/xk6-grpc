@@ -81,7 +81,7 @@ export default () => {
   });
 
   stream.on('error', (err) => {
-    console.log('Stream Error: ' + err);
+    console.log('Stream Error: ' + JSON.stringify(err));
   });
 
   stream.on('end', () => {

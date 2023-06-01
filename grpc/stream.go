@@ -15,6 +15,8 @@ import (
 	"go.k6.io/k6/js/common"
 	"go.k6.io/k6/js/modules"
 	"go.k6.io/k6/metrics"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
@@ -349,15 +351,47 @@ func (s *stream) closeWithError(err error) error {
 func (s *stream) callErrorListeners(e error) error {
 	rt := s.vu.Runtime()
 
-	for _, errorListener := range s.eventListeners.all(eventError) {
-		// TODO(olegbespalov): consider wrapping the error into an object
-		// to provide more structure about error (like the error code and so on)
+	obj := extractError(e)
 
-		if _, err := errorListener(rt.ToValue(e)); err != nil {
+	for _, errorListener := range s.eventListeners.all(eventError) {
+		if _, err := errorListener(rt.ToValue(obj)); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+type grpcError struct {
+	// Code is a gRPC error code.
+	Code codes.Code `json:"code"`
+	// Details is a list details attached to the error.
+	Details []interface{} `json:"details"`
+	// Message is the original error message.
+	Message string `json:"message"`
+}
+
+// Error to satisfy the error interface.
+func (e grpcError) Error() string {
+	return fmt.Sprintf("code: %d, message: %s", e.Code, e.Message)
+}
+
+// extractError tries to extract error information from an error.
+// If the error is not a gRPC error, it will be wrapped into a gRPC error.
+func extractError(e error) grpcError {
+	grpcStatus := status.Convert(e)
+
+	w := grpcError{
+		Code:    grpcStatus.Code(),
+		Details: grpcStatus.Details(),
+		Message: grpcStatus.Message(),
+	}
+
+	// fallback to the original error message
+	if w.Message == "" {
+		w.Message = e.Error()
+	}
+
+	return w
 }
 
 func (s *stream) callEventListeners(eventType string) error {

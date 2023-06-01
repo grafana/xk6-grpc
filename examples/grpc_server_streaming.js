@@ -37,7 +37,7 @@ export default () => {
 
   stream.on('error', function (e) {
     // An error has occurred and the stream has been closed.
-    console.log('Error: ' + e);
+    console.log('Error: ' + JSON.stringify(e));
   });
 
   // send a message to the server
