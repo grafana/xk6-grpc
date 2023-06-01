@@ -56,7 +56,6 @@ require (
 	github.com/mstoykov/atlas v0.0.0-20220811071828-388f114305dd // indirect
 	github.com/mstoykov/envconfig v1.4.1-0.20220114105314-765c6d8c76f1 // indirect
 	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d // indirect
-	github.com/onsi/gomega v1.27.5 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.14.1-0.20221122130035-8b6e68085b10 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
