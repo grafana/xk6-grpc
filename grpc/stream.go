@@ -361,7 +361,7 @@ func (s *stream) callErrorListeners(e error) error {
 	return nil
 }
 
-type errorWrapper struct {
+type grpcError struct {
 	// Code is a gRPC error code.
 	Code codes.Code `json:"code"`
 	// Details is a list details attached to the error.
@@ -370,12 +370,17 @@ type errorWrapper struct {
 	Message string `json:"message"`
 }
 
+// Error to satisfy the error interface.
+func (e grpcError) Error() string {
+	return fmt.Sprintf("code: %d, message: %s", e.Code, e.Message)
+}
+
 // extractError tries to extract error information from an error.
 // If the error is not a gRPC error, it will be wrapped into a gRPC error.
-func extractError(e error) errorWrapper {
+func extractError(e error) grpcError {
 	grpcStatus := status.Convert(e)
 
-	w := errorWrapper{
+	w := grpcError{
 		Code:    grpcStatus.Code(),
 		Details: grpcStatus.Details(),
 		Message: grpcStatus.Message(),
