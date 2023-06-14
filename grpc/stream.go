@@ -290,10 +290,10 @@ func (s *stream) processSendError(err error) {
 		return
 	}
 
-	s.tq.Queue(func() error {
-		return s.closeWithError(nil)
-	})
 	s.logger.WithError(err).Error("failed to send data to the stream")
+	s.tq.Queue(func() error {
+		return s.closeWithError(err)
+	})
 }
 
 // on registers a listener for a certain event type
