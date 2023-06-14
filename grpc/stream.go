@@ -234,12 +234,7 @@ func (s *stream) writeData(wg *sync.WaitGroup) {
 
 				err := s.stream.Send(msg.msg)
 				if err != nil {
-					s.logger.WithError(err).Error("failed to send data to the stream")
-
-					s.tq.Queue(func() error {
-						return s.closeWithError(err)
-					})
-
+					s.processSendError(err)
 					return
 				}
 
@@ -282,6 +277,23 @@ func (s *stream) writeData(wg *sync.WaitGroup) {
 			}
 		}
 	}
+}
+
+func (s *stream) processSendError(err error) {
+	if errors.Is(err, io.EOF) {
+		s.logger.WithError(err).Debug("can't send data to the closed stream")
+
+		s.tq.Queue(func() error {
+			return s.closeWithError(nil)
+		})
+
+		return
+	}
+
+	s.tq.Queue(func() error {
+		return s.closeWithError(nil)
+	})
+	s.logger.WithError(err).Error("failed to send data to the stream")
 }
 
 // on registers a listener for a certain event type
