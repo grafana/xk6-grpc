@@ -25,8 +25,6 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/dynamicpb"
-
-	"github.com/golang-collections/collections/stack"
 )
 
 // Client represents a gRPC client that can be used to make RPC requests
@@ -285,14 +283,16 @@ func (c *Client) convertToMethodInfo(fdset *descriptorpb.FileDescriptorSet) ([]M
 			}
 		}
 
-		s := stack.New()
 		messages := fd.Messages()
+
+		stack := make([]protoreflect.MessageDescriptor, 0, messages.Len())
 		for i := 0; i < messages.Len(); i++ {
-			s.Push(messages.Get(i))
+			stack = append(stack, messages.Get(i))
 		}
 
-		for s.Len() > 0 {
-			message, _ := s.Pop().(protoreflect.MessageDescriptor)
+		for len(stack) > 0 {
+			message := stack[len(stack)-1]
+			stack = stack[:len(stack)-1]
 
 			_, errFind := protoregistry.GlobalTypes.FindMessageByName(message.FullName())
 			if errors.Is(errFind, protoregistry.NotFound) {
@@ -304,7 +304,7 @@ func (c *Client) convertToMethodInfo(fdset *descriptorpb.FileDescriptorSet) ([]M
 
 			nested := message.Messages()
 			for i := 0; i < nested.Len(); i++ {
-				s.Push(nested.Get(i))
+				stack = append(stack, nested.Get(i))
 			}
 		}
 
