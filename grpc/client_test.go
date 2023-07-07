@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 
 	"github.com/dop251/goja"
 	"github.com/golang/protobuf/ptypes/any"
@@ -748,5 +750,43 @@ func TestDebugStat(t *testing.T) {
 			grpcext.DebugStat(logger.WithField("source", "test"), tt.stat, "full")
 			assert.Contains(t, b.String(), tt.expected)
 		})
+	}
+}
+
+func TestClientLoadProto(t *testing.T) {
+	t.Parallel()
+
+	ts := newTestState(t)
+
+	tt := testcase{
+		name: "LoadNestedTypesProto",
+		initString: codeBlock{
+			code: `
+			var client = new grpc.Client();
+			client.load([], "testdata/nested_types/nested_types.proto");`,
+		},
+	}
+
+	replace := func(code string) (goja.Value, error) {
+		return ts.VU.Runtime().RunString(ts.httpBin.Replacer.Replace(code))
+	}
+
+	val, err := replace(tt.initString.code)
+	assertResponse(t, tt.initString, err, val, ts)
+
+	expectedTypes := []string{
+		"grpc.testdata.nested.types.Outer",
+		"grpc.testdata.nested.types.Outer.MiddleAA",
+		"grpc.testdata.nested.types.Outer.MiddleAA.Inner",
+		"grpc.testdata.nested.types.Outer.MiddleBB",
+		"grpc.testdata.nested.types.Outer.MiddleBB.Inner",
+		"grpc.testdata.nested.types.MeldOuter",
+	}
+
+	for _, expected := range expectedTypes {
+		found, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(expected))
+
+		assert.NotNil(t, found, "Expected to find the message type %s, but an error occurred", expected)
+		assert.Nil(t, err, "It was not expected that there would be an error, but it got: %v", err)
 	}
 }
