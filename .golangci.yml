@@ -1,4 +1,4 @@
-# v1.51.2
+# v1.53.3
 # Please don't remove the first line. It uses in CI to determine the golangci version
 run:
   deadline: 5m
@@ -10,7 +10,7 @@ issues:
   max-same-issues: 0
 
   # We want to try and improve the comments in the k6 codebase, so individual
-  # non-golint items from the default exclusion list will gradually be addded
+  # non-golint items from the default exclusion list will gradually be added
   # to the exclude-rules below
   exclude-use-default: false
 
@@ -25,7 +25,7 @@ issues:
        - funlen
        - lll
    - linters:
-     - staticcheck
+     - staticcheck # Tracked in https://github.com/grafana/xk6-grpc/issues/14
      text: "The entire proto file grpc/reflection/v1alpha/reflection.proto is marked as deprecated."
    - linters:
      - forbidigo
@@ -58,6 +58,7 @@ linters-settings:
       - '^os\.(.*)$(# Using anything except Signal and SyscallError from the os package is forbidden )?'
       # Forbid everything in syscall except the uppercase constants
       - '^syscall\.[^A-Z_]+$(# Using anything except constants from the syscall package is forbidden )?'
+      - '^logrus\.Logger$'
 
 linters:
   disable-all: true
@@ -68,7 +69,6 @@ linters:
     - bodyclose
     - contextcheck
     - cyclop
-    - depguard
     - dogsled
     - dupl
     - durationcheck
