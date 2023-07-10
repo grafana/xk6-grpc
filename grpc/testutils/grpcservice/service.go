@@ -23,7 +23,6 @@ import (
 // * https://grpc.io/docs/languages/go/quickstart/
 //
 //
-//nolint:lll
 //go:generate protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative route_guide.proto
 
 // FeatureExplorerImplementation contains an implementation of the FeatureExplorer service.
@@ -39,7 +38,7 @@ func NewFeatureExplorerServer(features ...*Feature) *FeatureExplorerImplementati
 }
 
 // GetFeature returns the feature at the given point.
-func (s *FeatureExplorerImplementation) GetFeature(ctx context.Context, point *Point) (*Feature, error) {
+func (s *FeatureExplorerImplementation) GetFeature(_ context.Context, point *Point) (*Feature, error) {
 	s.Logf("GetFeature called with: %+v\n", point)
 
 	n := rand.Intn(1000) //nolint:gosec
