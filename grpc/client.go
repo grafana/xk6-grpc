@@ -113,12 +113,12 @@ func (c *Client) LoadProtoset(protosetPath string) ([]MethodInfo, error) {
 func decryptPrivateKey(key, password []byte) ([]byte, error) {
 	block, _ := pem.Decode(key)
 	if block == nil {
-		return nil, fmt.Errorf("failed to decode PEM key")
+		return nil, errors.New("failed to decode PEM key")
 	}
 
 	blockType := block.Type
 	if blockType == "ENCRYPTED PRIVATE KEY" {
-		return nil, fmt.Errorf("encrypted pkcs8 formatted key is not supported")
+		return nil, errors.New("encrypted pkcs8 formatted key is not supported")
 	}
 	/*
 	   Even though `DecryptPEMBlock` has been deprecated since 1.16.x it is still
@@ -220,13 +220,11 @@ func (c *Client) Connect(addr string, params map[string]interface{}) (bool, erro
 
 	var tcred credentials.TransportCredentials
 	if !p.IsPlaintext {
-		var tlsCfg *tls.Config
+		tlsCfg := state.TLSConfig.Clone()
 		if len(p.TLS) > 0 {
-			if tlsCfg, err = buildTLSConfigFromMap(state.TLSConfig.Clone(), p.TLS); err != nil {
+			if tlsCfg, err = buildTLSConfigFromMap(tlsCfg, p.TLS); err != nil {
 				return false, err
 			}
-		} else {
-			tlsCfg = state.TLSConfig.Clone()
 		}
 		tlsCfg.NextProtos = []string{"h2"}
 
@@ -515,12 +513,12 @@ func parseConnectTLSParam(params *connectParams, v interface{}) error {
 			for _, cacertsArrayEntry := range cacertsArray {
 				if _, ok = cacertsArrayEntry.(string); !ok {
 					return fmt.Errorf("invalid tls cacerts value: '%#v',"+
-						" it needs to be a string or string[] of PEM formatted strings", v)
+						" it needs to be a string or an array of PEM formatted strings", v)
 				}
 			}
 		} else if _, ok = cacerts.(string); !ok {
 			return fmt.Errorf("invalid tls cacerts value: '%#v',"+
-				" it needs to be a string or string[] of PEM formatted strings", v)
+				" it needs to be a string or an array of PEM formatted strings", v)
 		}
 	}
 	return nil
