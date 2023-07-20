@@ -1,8 +1,8 @@
 # xk6-grpc
 
-This extension is re-designing of the k6's GRPC module that also should bring new features like GRPC streaming.
+This extension is re-designing of the k6's GRPC module that also should bring new features like GRPC streaming (it's available in the k6 as `k6/experimental/grpc`).
 
-The extension code copied from the original k6's GRPC module, so you could use [an original documentation](https://k6.io/docs/javascript-api/k6-net-grpc/).
+The extension code copied from the original k6's GRPC module. The module documentation is available [here](https://k6.io/docs/javascript-api/k6-experimental/grpc/).
 
 The new stream's functionality (more examples you can find in the `examples` folder):
 
@@ -61,3 +61,11 @@ stream.end()
   ```shell
   $ ./k6 run examples/grpc_client_streaming.js
   ```
+
+## Contributing
+
+Contributing to this repository is following general k6's [contribution guidelines](https://github.com/grafana/k6/blob/master/CONTRIBUTING.md) since the long-term goal is to merge this extension into the main k6 repository.
+
+However, since right now there are two modules, `k6/net/grpc` and `k6/experimental/grpc`, that have similar functionality (the experimental module started as a copy), and not sharing the code, there is a specialty exists that forces us to backport (or forward port) changes to shared functionality (e.g., bug fixes) between modules.
+
+We don't expect every contributor to do that and are happy to do that for you, but if you want to do that by yourself, you can do that.
