@@ -683,6 +683,179 @@ func TestClient(t *testing.T) {
 	}
 }
 
+func TestClient_ConnectionSharingParameter(t *testing.T) {
+	t.Parallel()
+
+	tests := []testcase{
+		{
+			name: "ConnectConnectionSharingDefault",
+			initString: codeBlock{code: `
+				var client0 = new grpc.Client();
+				var client1 = new grpc.Client();`},
+			vuString: codeBlock{
+				code: `
+					client0.connect("GRPCBIN_ADDR");
+					client1.connect("GRPCBIN_ADDR");
+					if (client0.isSameConnection(client1)) {
+						throw new Error("unexpected connection equality");
+					}`,
+			},
+		},
+		{
+			name: "ConnectConnectionSharingFalseFalse",
+			initString: codeBlock{code: `
+				var client0 = new grpc.Client();
+				var client1 = new grpc.Client();`},
+			vuString: codeBlock{
+				code: `
+					client0.connect("GRPCBIN_ADDR", { connectionSharing: false});
+					client1.connect("GRPCBIN_ADDR", { connectionSharing: false});
+					if (client0.isSameConnection(client1)) {
+						throw new Error("unexpected connection equality");
+					}`,
+			},
+		},
+		{
+			name: "ConnectConnectionSharingFalseTrue",
+			initString: codeBlock{code: `
+				var client0 = new grpc.Client();
+				var client1 = new grpc.Client();`},
+			vuString: codeBlock{
+				code: `
+					client0.connect("GRPCBIN_ADDR", { connectionSharing: true});
+					client1.connect("GRPCBIN_ADDR", { connectionSharing: false});
+					if (client0.isSameConnection(client1)) {
+						throw new Error("unexpected connection equality");
+					}`,
+			},
+		},
+		{
+			name: "ConnectConnectionSharingTrueTrue",
+			initString: codeBlock{code: `
+				var client0 = new grpc.Client();
+				var client1 = new grpc.Client();`},
+			vuString: codeBlock{
+				code: `
+					client0.connect("GRPCBIN_ADDR", { connectionSharing: true});
+					client1.connect("GRPCBIN_ADDR", { connectionSharing: true});
+					if (!client0.isSameConnection(client1)) {
+						throw new Error("unexpected connection inequality");
+					}`,
+			},
+		},
+		{
+			name: "ConnectConnectionSharingTrueFalseTrue",
+			initString: codeBlock{code: `
+				var client0 = new grpc.Client();
+				var client1 = new grpc.Client();
+				var client2 = new grpc.Client();`},
+			vuString: codeBlock{
+				code: `
+					client0.connect("GRPCBIN_ADDR", { connectionSharing: true});
+					client1.connect("GRPCBIN_ADDR", { connectionSharing: false});
+					client2.connect("GRPCBIN_ADDR", { connectionSharing: true});
+					if (client0.isSameConnection(client1)) {
+						throw new Error("unexpected connection equality");
+					}
+					if (!client0.isSameConnection(client2)) {
+						throw new Error("unexpected connection inequality");
+					}`,
+			},
+		},
+		{
+			name: "ConnectConnectionSharingMax2Default",
+			initString: codeBlock{code: `
+				var client0 = new grpc.Client();
+				var client1 = new grpc.Client();
+				var client2 = new grpc.Client();
+				const maxSharing = 2;
+				`},
+			vuString: codeBlock{
+				code: `
+					client0.connect("GRPCBIN_ADDR", { connectionSharing: maxSharing });
+					client1.connect("GRPCBIN_ADDR", { connectionSharing: maxSharing });
+					client2.connect("GRPCBIN_ADDR", { connectionSharing: maxSharing });
+					if (!client0.isSameConnection(client1)) {
+						throw new Error("unexpected connection inequality");
+					}
+					if (client0.isSameConnection(client2)) {
+						throw new Error("unexpected connection equality");
+					}`,
+			},
+		},
+		{
+			name: "ConnectConnectionSharingValue1",
+			initString: codeBlock{code: `
+				var client0 = new grpc.Client();
+				const maxSharing = 1;
+				`},
+			vuString: codeBlock{
+				code: `client0.connect("GRPCBIN_ADDR", { connectionSharing: maxSharing });`,
+				err:  "it needs to be boolean or a positive integer > 1",
+			},
+		},
+		{
+			// First 100 connections (0 - 99) will be shared, last connection: [100] will be a new connection
+			// Only 2 connections total will be opened
+			name: "ConnectConnectionSharingValue100",
+			initString: codeBlock{code: `
+				const clients = [];
+                for(var i = 0; i < 101; i++) {
+					clients.push(new grpc.Client());
+				}`},
+			vuString: codeBlock{
+				code: `
+                for(let i = 0; i < 101; i++) {
+					clients[i].connect("GRPCBIN_ADDR", { connectionSharing: true });
+				}
+				for(var i = 1; i < 100; i++) {
+					if (!clients[i].isSameConnection(clients[0])) {
+						throw new Error("unexpected connection inequality:" + i);
+					}
+				}
+				if (clients[100].isSameConnection(clients[0])) {
+					throw new Error("unexpected connection equality");
+				}`,
+			},
+		},
+		{
+			name: "ConnectConnectionSharingValueBad",
+			initString: codeBlock{code: `
+				var client0 = new grpc.Client();
+				const maxSharing = "on";
+				`},
+			vuString: codeBlock{
+				code: `client0.connect("GRPCBIN_ADDR", { connectionSharing: maxSharing });`,
+				err:  "it needs to be boolean or a positive integer > 1",
+			},
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ts := newTestState(t)
+
+			// setup necessary environment if needed by a test
+			if tt.setup != nil {
+				tt.setup(ts.httpBin)
+			}
+
+			replace := func(code string) (goja.Value, error) {
+				return ts.VU.Runtime().RunString(ts.httpBin.Replacer.Replace(code))
+			}
+
+			val, err := replace(tt.initString.code)
+			assertResponse(t, tt.initString, err, val, ts)
+
+			ts.ToVUContext()
+			val, err = replace(tt.vuString.code)
+			assertResponse(t, tt.vuString, err, val, ts)
+		})
+	}
+}
+
 func TestClient_TlsParameters(t *testing.T) {
 	t.Parallel()
 

@@ -4,10 +4,13 @@ package grpcext
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 	"go.k6.io/k6/lib"
@@ -58,8 +61,21 @@ type clientConnCloser interface {
 
 // Conn is a gRPC client connection.
 type Conn struct {
-	raw clientConnCloser
+	addr   string
+	shares atomic.Uint64
+	raw    clientConnCloser
 }
+
+var (
+	// Is there any other way?
+
+	//nolint:golint,gochecknoglobals
+	connections = &sync.Map{}
+	//nolint:golint,gochecknoglobals
+	connectionsAddrMu             = &sync.Map{}
+	errClosingSharedConnection    = errors.New("error closing shared connection")
+	errUnexpectedSharedConnection = errors.New("unexpected entry for shared connection mutex")
+)
 
 // DefaultOptions generates an option set
 // with common options for requests from a VU.
@@ -86,6 +102,85 @@ func Dial(ctx context.Context, addr string, options ...grpc.DialOption) (*Conn, 
 	return &Conn{
 		raw: conn,
 	}, nil
+}
+
+// DialShared establish a gRPC connection if a shared connection for the same address does not already exist.
+// Note: only use a shared connection over the same address if the service is the same OR if multiple services are muxed
+// over this shared address.
+func DialShared(ctx context.Context, addr string, connectionSharing uint64, options ...grpc.DialOption) (*Conn, error) {
+	var (
+		iconn interface{}
+		conn  []*Conn
+		raw   *grpc.ClientConn
+		err   error
+	)
+	var ok bool
+
+	var addrMu *sync.Mutex
+	// Lock for mutating connectionsAddrMu map
+	if addrMuEntry, _ := connectionsAddrMu.LoadOrStore(addr, &sync.Mutex{}); addrMuEntry != nil {
+		if addrMu, ok = addrMuEntry.(*sync.Mutex); ok {
+			// Lock for mutating connections map
+			addrMu.Lock()
+			defer addrMu.Unlock()
+		}
+	}
+	if addrMu == nil {
+		return nil, errors.New("unable to find connection address mutex, this should not happen")
+	}
+
+	// As we may modify the clients map
+	// We lock to ensure we only open a single connection and add it to the map. Subsequent consumers will obtain
+	// the dialed connection.
+	// Get the connections array and check if the number of available tickets is
+	if iconn, ok = connections.Load(addr); !ok {
+		raw, err = grpc.DialContext(ctx, addr, options...)
+		if err != nil {
+			return nil, err
+		}
+		conn = make([]*Conn, 0)
+		newConn := &Conn{
+			addr:   addr,
+			raw:    raw,
+			shares: atomic.Uint64{},
+		}
+		newConn.shares.Store(connectionSharing)
+		conn = append(conn, newConn)
+		connections.Store(addr, conn)
+	} else {
+		if conn, ok = iconn.([]*Conn); ok {
+			if conn[len(conn)-1].shares.CompareAndSwap(1, 0) {
+				raw, err = grpc.DialContext(ctx, addr, options...)
+				if err != nil {
+					return nil, err
+				}
+				newConn := &Conn{
+					addr:   addr,
+					raw:    raw,
+					shares: atomic.Uint64{},
+				}
+				newConn.shares.Store(connectionSharing)
+				conn = append(conn, newConn)
+				connections.Store(addr, conn)
+			} else {
+				conn[len(conn)-1].shares.Add(^uint64(0))
+			}
+		}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	return conn[len(conn)-1], nil
+}
+
+// Equals compares two Conn pointers for equality of `addr` and `raw` connection.
+// See: Client connectParams ConnectionSharing parameter
+func (c *Conn) Equals(conn *Conn) bool {
+	if c.raw == nil || c.addr == "" || conn == nil || conn.raw == nil || conn.addr == "" {
+		return false
+	}
+	return c.raw == conn.raw && c.addr == conn.addr
 }
 
 // Reflect returns using the reflection the FileDescriptorSet describing the service.
@@ -204,7 +299,60 @@ func (c *Conn) NewStream(
 
 // Close closes the underhood connection.
 func (c *Conn) Close() error {
-	return c.raw.Close()
+	var err error
+	if c.addr != "" {
+		// Lock for mutating connections map
+		err = c.closeShared()
+		if errors.Is(err, errUnexpectedSharedConnection) {
+			err = c.raw.Close()
+		}
+	} else {
+		err = c.raw.Close()
+	}
+
+	return err
+}
+
+func (c *Conn) closeShared() error {
+	var (
+		addrMu      *sync.Mutex
+		ok          bool
+		addrMuEntry interface{}
+		err         error
+	)
+
+	// Lock for mutating connectionsAddrMu map
+	if addrMuEntry, ok = connectionsAddrMu.Load(c.addr); ok && addrMuEntry != nil {
+		addrMu, ok = addrMuEntry.(*sync.Mutex)
+	}
+	if !ok {
+		return errUnexpectedSharedConnection
+	}
+	addrMu.Lock()
+	if iconn, cok := connections.Load(c.addr); cok {
+		conn, convok := iconn.([]*Conn)
+		if !convok {
+			connections.Delete(c.addr)
+			addrMu.Unlock()
+			return errUnexpectedSharedConnection
+		}
+		for _, cconn := range conn {
+			if cconn.raw == c.raw {
+				continue
+			}
+			cerr := cconn.raw.Close()
+			if cerr != nil && err == nil {
+				err = errClosingSharedConnection
+			}
+		}
+		if err == nil {
+			err = c.raw.Close()
+		}
+	}
+	connections.Delete(c.addr)
+	addrMu.Unlock()
+
+	return err
 }
 
 type statsHandler struct {

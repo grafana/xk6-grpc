@@ -204,6 +204,27 @@ func buildTLSConfigFromMap(parentConfig *tls.Config, tlsConfigMap map[string]int
 	return buildTLSConfig(parentConfig, cert, key, ca)
 }
 
+// IsSameConnection compares this Client to another Client's raw connection for equality
+// See: connectParams.ConnectionSharing parameter
+func (c *Client) IsSameConnection(v goja.Value) (bool, error) {
+	rt := c.vu.Runtime()
+
+	if common.IsNullish(v) {
+		return false, nil
+	}
+
+	client, ok := v.ToObject(rt).Export().(*Client)
+	if !ok {
+		return false, errors.New("parameter must a 'Client'")
+	}
+
+	if client.conn == nil || c.conn == nil {
+		return false, errors.New("no gRPC connection, you must call connect first")
+	}
+
+	return c.conn.Equals(client.conn), nil
+}
+
 // Connect is a block dial to the gRPC server at the given address (host:port)
 func (c *Client) Connect(addr string, params map[string]interface{}) (bool, error) {
 	state := c.vu.State()
@@ -250,7 +271,12 @@ func (c *Client) Connect(addr string, params map[string]interface{}) (bool, erro
 	}
 
 	c.addr = addr
-	c.conn, err = grpcext.Dial(ctx, addr, opts...)
+
+	if p.ConnectionSharing <= 1 {
+		c.conn, err = grpcext.Dial(ctx, addr, opts...)
+	} else {
+		c.conn, err = grpcext.DialShared(ctx, addr, uint64(p.ConnectionSharing), opts...)
+	}
 	if err != nil {
 		return false, err
 	}
@@ -424,6 +450,7 @@ type connectParams struct {
 	Timeout               time.Duration
 	MaxReceiveSize        int64
 	MaxSendSize           int64
+	ConnectionSharing     int64
 	TLS                   map[string]interface{}
 }
 
@@ -434,6 +461,7 @@ func (c *Client) parseConnectParams(raw map[string]interface{}) (connectParams, 
 		Timeout:               time.Minute,
 		MaxReceiveSize:        0,
 		MaxSendSize:           0,
+		ConnectionSharing:     0,
 	}
 	for k, v := range raw {
 		switch k {
@@ -472,6 +500,29 @@ func (c *Client) parseConnectParams(raw map[string]interface{}) (connectParams, 
 			}
 			if params.MaxSendSize < 0 {
 				return params, fmt.Errorf("invalid maxSendSize value: '%#v, it needs to be a positive integer", v)
+			}
+		case "connectionSharing":
+			var (
+				ok                    bool
+				connectionSharingBool bool
+			)
+
+			connectionSharingBool, ok = v.(bool)
+			if ok {
+				params.ConnectionSharing = 1
+				if connectionSharingBool {
+					params.ConnectionSharing = 100
+				}
+			} else {
+				params.ConnectionSharing, ok = v.(int64)
+				if !ok {
+					return params, fmt.Errorf("invalid connectionSharing value: '%#v', it needs to be boolean or a"+
+						" positive integer > 1", v)
+				}
+				if params.ConnectionSharing <= 1 {
+					return params, fmt.Errorf("invalid connectionSharing value: '%#v', it needs to be boolean or a"+
+						" positive integer > 1", v)
+				}
 			}
 		case "tls":
 			if err := parseConnectTLSParam(&params, v); err != nil {
