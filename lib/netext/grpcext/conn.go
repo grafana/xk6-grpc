@@ -133,7 +133,9 @@ func DialShared(ctx context.Context, addr string, connectionSharing uint64, opti
 	// We lock to ensure we only open a single connection and add it to the map. Subsequent consumers will obtain
 	// the dialed connection.
 	// Get the connections array and check if the number of available tickets is
+	//nolint:golint,nestif
 	if iconn, ok = connections.Load(addr); !ok {
+		// a connection list was not found
 		raw, err = grpc.DialContext(ctx, addr, options...)
 		if err != nil {
 			return nil, err
@@ -148,7 +150,10 @@ func DialShared(ctx context.Context, addr string, connectionSharing uint64, opti
 		conn = append(conn, newConn)
 		connections.Store(addr, conn)
 	} else {
+		// a connection list was found, check if the last element has `shares` enough to share this connection
 		if conn, ok = iconn.([]*Conn); ok {
+			// one share left, set to 0 and create a new connection.
+			// this is why sharing is capped at `connectionSharing - 1`
 			if conn[len(conn)-1].shares.CompareAndSwap(1, 0) {
 				raw, err = grpc.DialContext(ctx, addr, options...)
 				if err != nil {

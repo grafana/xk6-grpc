@@ -502,27 +502,8 @@ func (c *Client) parseConnectParams(raw map[string]interface{}) (connectParams, 
 				return params, fmt.Errorf("invalid maxSendSize value: '%#v, it needs to be a positive integer", v)
 			}
 		case "connectionSharing":
-			var (
-				ok                    bool
-				connectionSharingBool bool
-			)
-
-			connectionSharingBool, ok = v.(bool)
-			if ok {
-				params.ConnectionSharing = 1
-				if connectionSharingBool {
-					params.ConnectionSharing = 100
-				}
-			} else {
-				params.ConnectionSharing, ok = v.(int64)
-				if !ok {
-					return params, fmt.Errorf("invalid connectionSharing value: '%#v', it needs to be boolean or a"+
-						" positive integer > 1", v)
-				}
-				if params.ConnectionSharing <= 1 {
-					return params, fmt.Errorf("invalid connectionSharing value: '%#v', it needs to be boolean or a"+
-						" positive integer > 1", v)
-				}
+			if err := parseConnectConnectionSharingParam(&params, v); err != nil {
+				return params, err
 			}
 		case "tls":
 			if err := parseConnectTLSParam(&params, v); err != nil {
@@ -533,6 +514,33 @@ func (c *Client) parseConnectParams(raw map[string]interface{}) (connectParams, 
 		}
 	}
 	return params, nil
+}
+
+func parseConnectConnectionSharingParam(params *connectParams, v interface{}) error {
+	var (
+		ok                    bool
+		connectionSharingBool bool
+	)
+
+	connectionSharingBool, ok = v.(bool)
+	if ok {
+		params.ConnectionSharing = 1
+		if connectionSharingBool {
+			params.ConnectionSharing = 100
+		}
+	} else {
+		params.ConnectionSharing, ok = v.(int64)
+		if !ok {
+			return fmt.Errorf("invalid connectionSharing value: '%#v', it needs to be boolean or a"+
+				" positive integer > 1", v)
+		}
+		if params.ConnectionSharing <= 1 {
+			return fmt.Errorf("invalid connectionSharing value: '%#v', it needs to be boolean or a"+
+				" positive integer > 1", v)
+		}
+	}
+
+	return nil
 }
 
 func parseConnectTLSParam(params *connectParams, v interface{}) error {
