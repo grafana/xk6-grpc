@@ -51,8 +51,9 @@ type stream struct {
 
 	obj *goja.Object // the object that is given to js to interact with the stream
 
-	state int8
-	done  chan struct{}
+	state    int8
+	done     chan struct{}
+	doneOnce sync.Once
 
 	writeQueueCh chan message
 
@@ -343,12 +344,16 @@ func (s *stream) close(err error) {
 	s.logger.WithError(err).Debug("stream is closing")
 
 	s.state = closed
-	close(s.done)
+
+	s.doneOnce.Do(func() {
+		close(s.done)
+	})
+
 	s.tq.Queue(func() error {
 		return s.callEventListeners(eventEnd)
 	})
 
-	if s.timeoutCancel != nil {
+	if s.timeoutCancel != nil && err != nil {
 		s.timeoutCancel()
 	}
 }
