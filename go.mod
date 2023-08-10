@@ -3,20 +3,22 @@ module github.com/grafana/xk6-grpc
 go 1.19
 
 require (
-	github.com/dop251/goja v0.0.0-20230427124612-428fc442ff5f
+	github.com/dop251/goja v0.0.0-20230531210528-d7324b2d74f7
 	github.com/golang/protobuf v1.5.3
 	github.com/jhump/protoreflect v1.15.1
 	github.com/mstoykov/k6-taskqueue-lib v0.1.0
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/afero v1.1.2
 	github.com/stretchr/testify v1.8.2
-	go.k6.io/k6 v0.44.2-0.20230524054758-add1a5fe5019
+	go.k6.io/k6 v0.45.1
 	google.golang.org/grpc v1.55.0
-	google.golang.org/protobuf v1.30.0
+	google.golang.org/protobuf v1.31.0
 	gopkg.in/guregu/null.v3 v3.3.0
 )
 
 require (
+	buf.build/gen/go/gogo/protobuf/protocolbuffers/go v1.31.0-20210810001428-4df00b267f94.1 // indirect
+	buf.build/gen/go/prometheus/prometheus/protocolbuffers/go v1.31.0-20230627135113-9a12bc2590d2.1 // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
 	github.com/DataDog/datadog-go v0.0.0-20180330214955-e67964b4021a // indirect
 	github.com/PuerkitoBio/goquery v1.8.1 // indirect
@@ -38,8 +40,8 @@ require (
 	github.com/google/pprof v0.0.0-20230207041349-798e818bf904 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
-	github.com/grafana/xk6-browser v0.9.0 // indirect
-	github.com/grafana/xk6-output-prometheus-remote v0.2.1 // indirect
+	github.com/grafana/xk6-browser v0.10.0 // indirect
+	github.com/grafana/xk6-output-prometheus-remote v0.2.2-0.20230804114542-d969b142f46f // indirect
 	github.com/grafana/xk6-redis v0.1.1 // indirect
 	github.com/grafana/xk6-timers v0.1.2 // indirect
 	github.com/grafana/xk6-webcrypto v0.1.0 // indirect
@@ -67,8 +69,6 @@ require (
 	github.com/tidwall/gjson v1.14.4 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
-	go.buf.build/grpc/go/gogo/protobuf v1.4.9 // indirect
-	go.buf.build/grpc/go/prometheus/prometheus v1.4.4 // indirect
 	go.uber.org/goleak v1.2.1 // indirect
 	golang.org/x/crypto v0.9.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
