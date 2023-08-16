@@ -1,0 +1,14 @@
+name: "Auto assign maintainer to issue"
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  assign-user:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assign k6's maintainer to issue
+        uses: grafana/k6/.github/actions/issue-assigner@master
