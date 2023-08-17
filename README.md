@@ -37,9 +37,10 @@ stream.end()
 
 ## Requirements
 
-* [Golang 1.19+](https://go.dev/)
+* [Golang 1.19+](https://go.dev/)g
 * [Git](https://git-scm.com/)
 * [xk6](https://github.com/grafana/xk6) (`go install go.k6.io/xk6/cmd/xk6@latest`)
+* [curl](https://curl.se/) (downloading the k6 core's linter rule-set)
 
 
 ## Getting started  
@@ -69,3 +70,17 @@ Contributing to this repository is following general k6's [contribution guidelin
 However, since right now there are two modules, `k6/net/grpc` and `k6/experimental/grpc`, that have similar functionality (the experimental module started as a copy), and not sharing the code, there is a specialty exists that forces us to backport (or forward port) changes to shared functionality (e.g., bug fixes) between modules.
 
 We don't expect every contributor to do that and are happy to do that for you, but if you want to do that by yourself, you can do that.
+
+### Testing
+
+To run the test you can use the `make test` target.
+
+> [!IMPORTANT]  
+> Our tests uses some proto definition files from the vendor folder. The first of the `make test` will check if the folder exists and if not try to download it. If you want to do that manually you can run `go mod vendor`.
+
+### Linting
+
+To run the linter you can use the `make lint` target.
+
+> [!IMPORTANT]  
+> By default there is golangci-lint config presented. Since the long-term goal is to merge the module back to the grafana/k6 we use the k6's linter rules. The rule set will be downloaded automatically while the first run of the `make lint` or you could do that manually by running `make linter-config`.

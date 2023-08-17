@@ -9,3 +9,7 @@ vendor
 *.syso
 .idea
 *.DS_Store
+
+# we use the config from the main k6's repository
+# https://github.com/grafana/k6/blob/master/.golangci.yml
+.golangci.yml
