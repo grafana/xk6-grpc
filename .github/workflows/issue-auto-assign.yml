@@ -7,8 +7,5 @@ permissions:
   issues: write
 
 jobs:
-  assign-user:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Assign k6's maintainer to issue
-        uses: grafana/k6/.github/actions/issue-assigner@master
+  assign-maintainer:
+    uses: grafana/k6/.github/workflows/issue-auto-assign.yml@feat/make-auto-assigment-reusable
