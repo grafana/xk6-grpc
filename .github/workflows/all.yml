@@ -76,7 +76,7 @@ jobs:
           which go
           go version
           go mod vendor
-          GRPC_GO_LOG_VERBOSITY_LEVEL=99 GRPC_GO_LOG_SEVERITY_LEVEL=info go test -race -timeout 60s ./...
+          go test -race -timeout 60s ./...
 
   test-build:
     runs-on: ubuntu-latest

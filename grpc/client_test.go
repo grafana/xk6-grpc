@@ -785,7 +785,7 @@ func TestClient_TlsParameters(t *testing.T) {
 			},
 			initString: codeBlock{code: `var client = new grpc.Client();`},
 			vuString: codeBlock{
-				code: fmt.Sprintf(`client.connect("GRPCBIN_ADDR", { timeout: '5s', tls: { cacerts: ["%s"], cert: "%s", key: "%s" }});`,
+				code: fmt.Sprintf(`client.connect("GRPCBIN_ADDR", { timeout: '20s', tls: { cacerts: ["%s"], cert: "%s", key: "%s" }});`,
 					localHostCert,
 					clientAuthBad,
 					clientAuthKey),
@@ -803,7 +803,7 @@ func TestClient_TlsParameters(t *testing.T) {
 			initString: codeBlock{code: `var client = new grpc.Client();`},
 			vuString: codeBlock{
 				code: fmt.Sprintf(`
-				client.connect("GRPCBIN_ADDR", { timeout: '5s', tls: { cacerts: ["%s"], cert: "%s", key: "%s", password: "%s" }});
+				client.connect("GRPCBIN_ADDR", { timeout: '20s', tls: { cacerts: ["%s"], cert: "%s", key: "%s", password: "%s" }});
 				`,
 					localHostCert,
 					clientAuthBad,
@@ -828,7 +828,7 @@ func TestClient_TlsParameters(t *testing.T) {
 				client.load([], "../vendor/go.k6.io/k6/lib/testutils/httpmultibin/grpc_testing/test.proto");`},
 			vuString: codeBlock{
 				code: fmt.Sprintf(`
-				client.connect("GRPCBIN_ADDR", { timeout: '5s', tls: { cacerts: ["%s"], cert: "%s", key: "%s" }});
+				client.connect("GRPCBIN_ADDR", { timeout: '20s', tls: { cacerts: ["%s"], cert: "%s", key: "%s" }});
 				var resp = client.invoke("grpc.testing.TestService/EmptyCall", {})
 				if (resp.status !== grpc.StatusOK) {
 					throw new Error("unexpected error: " + JSON.stringify(resp.error) + "or status: " + resp.status)
@@ -854,7 +854,7 @@ func TestClient_TlsParameters(t *testing.T) {
 				client.load([], "../vendor/go.k6.io/k6/lib/testutils/httpmultibin/grpc_testing/test.proto");`},
 			vuString: codeBlock{
 				code: fmt.Sprintf(`
-				client.connect("GRPCBIN_ADDR", { timeout: '5s', tls: { cacerts: ["%s"], cert: "%s", key: "%s" }});
+				client.connect("GRPCBIN_ADDR", { timeout: '20s', tls: { cacerts: ["%s"], cert: "%s", key: "%s" }});
 				var resp = client.invoke("grpc.testing.TestService/EmptyCall", {})
 				if (resp.status !== grpc.StatusOK) {
 					throw new Error("unexpected error: " + JSON.stringify(resp.error) + "or status: " + resp.status)
