@@ -32,7 +32,6 @@ grpc-server-run:
 
 ## test: Executes any tests.
 test:
-	test -s vendor || (echo "No vendored dependencies, but they required for tests, running 'go mod vendor'..." && go mod vendor)
 	echo "Running tests..."
 	go test -race -timeout 30s ./...
 
