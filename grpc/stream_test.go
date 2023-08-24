@@ -24,7 +24,7 @@ func TestStream_InvalidHeader(t *testing.T) {
 	initString := codeBlock{
 		code: `
 		var client = new grpc.Client();
-		client.load([], "../vendor/go.k6.io/k6/lib/testutils/httpmultibin/grpc_testing/test.proto");`,
+		client.load([], "../grpc/testdata/grpc_testing/test.proto");`,
 	}
 
 	val, err := replace(initString.code)

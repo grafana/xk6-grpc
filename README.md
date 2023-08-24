@@ -75,9 +75,6 @@ We don't expect every contributor to do that and are happy to do that for you, b
 
 To run the test you can use the `make test` target.
 
-> [!IMPORTANT]  
-> Our tests uses some proto definition files from the vendor folder. The first of the `make test` will check if the folder exists and if not try to download it. If you want to do that manually you can run `go mod vendor`.
-
 ### Linting
 
 To run the linter you can use the `make lint` target.
