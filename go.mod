@@ -3,15 +3,15 @@ module github.com/grafana/xk6-grpc
 go 1.19
 
 require (
-	github.com/dop251/goja v0.0.0-20230531210528-d7324b2d74f7
+	github.com/dop251/goja v0.0.0-20230828202809-3dbe69dd2b8e
 	github.com/golang/protobuf v1.5.3
 	github.com/jhump/protoreflect v1.15.1
 	github.com/mstoykov/k6-taskqueue-lib v0.1.0
-	github.com/sirupsen/logrus v1.9.0
+	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/afero v1.1.2
-	github.com/stretchr/testify v1.8.2
-	go.k6.io/k6 v0.45.1
-	google.golang.org/grpc v1.55.0
+	github.com/stretchr/testify v1.8.4
+	go.k6.io/k6 v0.46.1-0.20230829114542-fc1900e8c3c6
+	google.golang.org/grpc v1.56.1
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/guregu/null.v3 v3.3.0
 )
@@ -40,19 +40,20 @@ require (
 	github.com/google/pprof v0.0.0-20230207041349-798e818bf904 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
-	github.com/grafana/xk6-browser v0.10.0 // indirect
-	github.com/grafana/xk6-output-prometheus-remote v0.2.2-0.20230804114542-d969b142f46f // indirect
+	github.com/grafana/xk6-browser v1.0.2 // indirect
+	github.com/grafana/xk6-output-prometheus-remote v0.2.3 // indirect
 	github.com/grafana/xk6-redis v0.1.1 // indirect
 	github.com/grafana/xk6-timers v0.1.2 // indirect
 	github.com/grafana/xk6-webcrypto v0.1.0 // indirect
-	github.com/grafana/xk6-websockets v0.2.0 // indirect
+	github.com/grafana/xk6-websockets v0.2.1 // indirect
+	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/influxdata/influxdb1-client v0.0.0-20190402204710-8ff2fc3824fc // indirect
 	github.com/josharian/intern v1.0.0 // indirect
-	github.com/klauspost/compress v1.16.5 // indirect
+	github.com/klauspost/compress v1.16.7 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.18 // indirect
+	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/mccutchen/go-httpbin v1.1.2-0.20190116014521-c5cb2f4802fa // indirect
 	github.com/mstoykov/atlas v0.0.0-20220811071828-388f114305dd // indirect
@@ -66,17 +67,17 @@ require (
 	github.com/serenize/snaker v0.0.0-20201027110005-a7ad2135616e // indirect
 	github.com/spf13/cobra v1.4.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/tidwall/gjson v1.14.4 // indirect
+	github.com/tidwall/gjson v1.16.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	go.uber.org/goleak v1.2.1 // indirect
-	golang.org/x/crypto v0.9.0 // indirect
-	golang.org/x/net v0.10.0 // indirect
+	golang.org/x/crypto v0.12.0 // indirect
+	golang.org/x/net v0.14.0 // indirect
 	golang.org/x/sync v0.2.0 // indirect
-	golang.org/x/sys v0.8.0 // indirect
-	golang.org/x/term v0.8.0 // indirect
-	golang.org/x/text v0.9.0 // indirect
+	golang.org/x/sys v0.11.0 // indirect
+	golang.org/x/term v0.11.0 // indirect
+	golang.org/x/text v0.12.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
-	google.golang.org/genproto v0.0.0-20230306155012-7f2fa6fef1f4 // indirect
+	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
