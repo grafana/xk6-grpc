@@ -50,8 +50,8 @@ type stream struct {
 
 	obj *goja.Object // the object that is given to js to interact with the stream
 
-	writing int8
-	done    chan struct{}
+	writingState int8
+	done         chan struct{}
 
 	writeQueueCh chan message
 
@@ -300,7 +300,7 @@ func (s *stream) on(event string, listener func(goja.Value) (goja.Value, error))
 
 // write writes a message to the stream
 func (s *stream) write(input goja.Value) {
-	if s.writing != opened {
+	if s.writingState != opened {
 		return
 	}
 
@@ -321,13 +321,13 @@ func (s *stream) write(input goja.Value) {
 
 // end closes client the stream
 func (s *stream) end() {
-	if s.writing == closed {
+	if s.writingState == closed {
 		return
 	}
 
 	s.logger.Debug("stream is closing")
 
-	s.writing = closed
+	s.writingState = closed
 	s.writeQueueCh <- message{isClosing: true}
 }
 
@@ -344,7 +344,15 @@ func (s *stream) close(err error) {
 		return
 	}
 
+	select {
+	case <-s.done:
+		s.logger.Debugf("stream %v is already closed", s.method)
+		return
+	default:
+	}
+
 	close(s.done)
+
 	s.tq.Queue(func() error {
 		return s.callEventListeners(eventEnd)
 	})
