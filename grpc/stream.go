@@ -325,7 +325,7 @@ func (s *stream) end() {
 		return
 	}
 
-	s.logger.Debug("stream is closing")
+	s.logger.Debugf("finishing stream %s writing", s.method)
 
 	s.writingState = closed
 	s.writeQueueCh <- message{isClosing: true}
@@ -351,6 +351,7 @@ func (s *stream) close(err error) {
 	default:
 	}
 
+	s.logger.Debugf("stream %s is closing", s.method)
 	close(s.done)
 
 	s.tq.Queue(func() error {
