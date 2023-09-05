@@ -23,6 +23,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	v1alphagrpc "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	grpcstats "google.golang.org/grpc/stats"
 	"google.golang.org/grpc/status"
 
@@ -563,7 +564,31 @@ func TestClient(t *testing.T) {
 		{
 			name: "ReflectInvoke",
 			setup: func(tb *httpmultibin.HTTPMultiBin) {
+				// this register both reflection APIs v1 and v1alpha
 				reflection.Register(tb.ServerGRPC)
+
+				tb.GRPCStub.EmptyCallFunc = func(ctx context.Context, _ *grpc_testing.Empty) (*grpc_testing.Empty, error) {
+					return &grpc_testing.Empty{}, nil
+				}
+			},
+			initString: codeBlock{
+				code: `var client = new grpc.Client();`,
+			},
+			vuString: codeBlock{
+				code: `
+					client.connect("GRPCBIN_ADDR", {reflect: true})
+					client.invoke("grpc.testing.TestService/EmptyCall", {})
+				`,
+			},
+		},
+		{
+			name: "ReflectV1Alpha_Invoke",
+			setup: func(tb *httpmultibin.HTTPMultiBin) {
+				// this register only v1alpha (this could be removed with removal v1alpha from grpc-go)
+				s := tb.ServerGRPC
+				svr := reflection.NewServer(reflection.ServerOptions{Services: s})
+				v1alphagrpc.RegisterServerReflectionServer(s, svr)
+
 				tb.GRPCStub.EmptyCallFunc = func(ctx context.Context, _ *grpc_testing.Empty) (*grpc_testing.Empty, error) {
 					return &grpc_testing.Empty{}, nil
 				}
@@ -581,7 +606,9 @@ func TestClient(t *testing.T) {
 		{
 			name: "ReflectV1Invoke",
 			setup: func(tb *httpmultibin.HTTPMultiBin) {
+				// this register only reflection APIs v1
 				reflection.RegisterV1(tb.ServerGRPC)
+
 				tb.GRPCStub.EmptyCallFunc = func(ctx context.Context, _ *grpc_testing.Empty) (*grpc_testing.Empty, error) {
 					return &grpc_testing.Empty{}, nil
 				}
