@@ -97,8 +97,6 @@ export default () => {
 
   // close the client stream
   stream.end();
-
-  sleep(1);
 };
 
 const pointSender = (stream, point) => {
