@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"sync"
 	"time"
 
@@ -140,7 +141,7 @@ func (s *stream) loop() {
 	}
 }
 
-func (s *stream) queueMessage(msg map[string]interface{}) {
+func (s *stream) queueMessage(msg interface{}) {
 	metrics.PushIfNotDone(s.vu.Context(), s.vu.State().Samples, metrics.Sample{
 		TimeSeries: metrics.TimeSeries{
 			Metric: s.instanceMetrics.StreamsMessagesReceived,
@@ -184,10 +185,6 @@ func (s *stream) readData(wg *sync.WaitGroup) {
 			return
 		}
 
-		if len(msg) > 0 {
-			s.queueMessage(msg)
-		}
-
 		if isRegularClosing(err) {
 			s.logger.WithError(err).Debug("stream is cancelled/finished")
 
@@ -196,6 +193,10 @@ func (s *stream) readData(wg *sync.WaitGroup) {
 			})
 
 			return
+		}
+
+		if msg != nil || !reflect.ValueOf(msg).IsNil() {
+			s.queueMessage(msg)
 		}
 	}
 }

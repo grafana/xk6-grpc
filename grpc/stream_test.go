@@ -2,14 +2,21 @@ package grpc_test
 
 import (
 	"context"
+	"errors"
+	"io"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/grafana/xk6-grpc/grpc/testutils/grpcservice"
+	"github.com/dop251/goja"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+
+	"github.com/grafana/xk6-grpc/grpc/testdata/wrappers_testing"
+	"github.com/grafana/xk6-grpc/grpc/testutils/grpcservice"
 )
 
 func TestStream_InvalidHeader(t *testing.T) {
@@ -286,4 +293,73 @@ func (s *featureExplorerStub) ListFeatures(rect *grpcservice.Rectangle, stream g
 	}
 
 	return status.Errorf(codes.Unimplemented, "method ListFeatures not implemented")
+}
+
+func TestStream_Wrappers(t *testing.T) {
+	t.Parallel()
+
+	ts := newTestState(t)
+
+	stub := wrappers_testing.Register(ts.httpBin.ServerGRPC)
+	stub.TestStreamImplementation = func(stream wrappers_testing.Service_TestStreamServer) error {
+		result := ""
+
+		for {
+			msg, err := stream.Recv()
+			if errors.Is(err, io.EOF) {
+				return stream.SendAndClose(&wrappers.StringValue{
+					Value: strings.TrimRight(result, " "),
+				})
+			}
+
+			if err != nil {
+				return err
+			}
+
+			result += msg.Value + " "
+		}
+	}
+
+	replace := func(code string) (goja.Value, error) {
+		return ts.VU.Runtime().RunString(ts.httpBin.Replacer.Replace(code))
+	}
+
+	initString := codeBlock{
+		code: `
+		var client = new grpc.Client();
+		client.load([], "../grpc/testdata/wrappers_testing/test.proto");`,
+	}
+	vuString := codeBlock{
+		code: `
+		client.connect("GRPCBIN_ADDR");
+		let stream = new grpc.Stream(client, "grpc.wrappers.testing.Service/TestStream");
+		stream.on('data', function (data) {
+			call('Result: ' + data);
+		})
+
+		stream.write('Hey');
+		stream.write('John');
+		stream.end();
+
+		stream.on('error', function (e) {
+			call('Code: ' + e.code + ' Message: ' + e.message);
+		});
+		`,
+	}
+
+	val, err := replace(initString.code)
+	assertResponse(t, initString, err, val, ts)
+
+	ts.ToVUContext()
+
+	val, err = replace(vuString.code)
+
+	ts.EventLoop.WaitOnRegistered()
+
+	assertResponse(t, vuString, err, val, ts)
+
+	assert.Equal(t, ts.callRecorder.Recorded(), []string{
+		"Result: Hey John",
+	},
+	)
 }

@@ -23,6 +23,7 @@ type ServiceClient interface {
 	TestInteger(ctx context.Context, in *wrappers.Int64Value, opts ...grpc.CallOption) (*wrappers.Int64Value, error)
 	TestBoolean(ctx context.Context, in *wrappers.BoolValue, opts ...grpc.CallOption) (*wrappers.BoolValue, error)
 	TestDouble(ctx context.Context, in *wrappers.DoubleValue, opts ...grpc.CallOption) (*wrappers.DoubleValue, error)
+	TestStream(ctx context.Context, opts ...grpc.CallOption) (Service_TestStreamClient, error)
 }
 
 type serviceClient struct {
@@ -69,6 +70,40 @@ func (c *serviceClient) TestDouble(ctx context.Context, in *wrappers.DoubleValue
 	return out, nil
 }
 
+func (c *serviceClient) TestStream(ctx context.Context, opts ...grpc.CallOption) (Service_TestStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Service_ServiceDesc.Streams[0], "/grpc.wrappers.testing.Service/TestStream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &serviceTestStreamClient{stream}
+	return x, nil
+}
+
+type Service_TestStreamClient interface {
+	Send(*wrappers.StringValue) error
+	CloseAndRecv() (*wrappers.StringValue, error)
+	grpc.ClientStream
+}
+
+type serviceTestStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *serviceTestStreamClient) Send(m *wrappers.StringValue) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *serviceTestStreamClient) CloseAndRecv() (*wrappers.StringValue, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(wrappers.StringValue)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // ServiceServer is the server API for Service service.
 // All implementations must embed UnimplementedServiceServer
 // for forward compatibility
@@ -77,6 +112,7 @@ type ServiceServer interface {
 	TestInteger(context.Context, *wrappers.Int64Value) (*wrappers.Int64Value, error)
 	TestBoolean(context.Context, *wrappers.BoolValue) (*wrappers.BoolValue, error)
 	TestDouble(context.Context, *wrappers.DoubleValue) (*wrappers.DoubleValue, error)
+	TestStream(Service_TestStreamServer) error
 	mustEmbedUnimplementedServiceServer()
 }
 
@@ -95,6 +131,9 @@ func (UnimplementedServiceServer) TestBoolean(context.Context, *wrappers.BoolVal
 }
 func (UnimplementedServiceServer) TestDouble(context.Context, *wrappers.DoubleValue) (*wrappers.DoubleValue, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TestDouble not implemented")
+}
+func (UnimplementedServiceServer) TestStream(Service_TestStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method TestStream not implemented")
 }
 func (UnimplementedServiceServer) mustEmbedUnimplementedServiceServer() {}
 
@@ -181,6 +220,32 @@ func _Service_TestDouble_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Service_TestStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ServiceServer).TestStream(&serviceTestStreamServer{stream})
+}
+
+type Service_TestStreamServer interface {
+	SendAndClose(*wrappers.StringValue) error
+	Recv() (*wrappers.StringValue, error)
+	grpc.ServerStream
+}
+
+type serviceTestStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *serviceTestStreamServer) SendAndClose(m *wrappers.StringValue) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *serviceTestStreamServer) Recv() (*wrappers.StringValue, error) {
+	m := new(wrappers.StringValue)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // Service_ServiceDesc is the grpc.ServiceDesc for Service service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -205,6 +270,12 @@ var Service_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Service_TestDouble_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "TestStream",
+			Handler:       _Service_TestStream_Handler,
+			ClientStreams: true,
+		},
+	},
 	Metadata: "test.proto",
 }
