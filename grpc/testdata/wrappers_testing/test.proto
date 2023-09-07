@@ -14,4 +14,6 @@ service Service {
    rpc TestInteger(google.protobuf.Int64Value) returns (google.protobuf.Int64Value);
    rpc TestBoolean(google.protobuf.BoolValue) returns (google.protobuf.BoolValue);
    rpc TestDouble(google.protobuf.DoubleValue) returns (google.protobuf.DoubleValue);
+
+   rpc TestStream(stream google.protobuf.StringValue) returns (google.protobuf.StringValue);
 }

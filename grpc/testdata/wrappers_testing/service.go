@@ -25,6 +25,7 @@ type service struct {
 	TestIntegerImplementation func(context.Context, *wrappers.Int64Value) (*wrappers.Int64Value, error)
 	TestBooleanImplementation func(context.Context, *wrappers.BoolValue) (*wrappers.BoolValue, error)
 	TestDoubleImplementation  func(context.Context, *wrappers.DoubleValue) (*wrappers.DoubleValue, error)
+	TestStreamImplementation  func(Service_TestStreamServer) error
 }
 
 func (s *service) TestString(ctx context.Context, in *wrappers.StringValue) (*wrappers.StringValue, error) {
@@ -57,4 +58,12 @@ func (s *service) TestDouble(ctx context.Context, in *wrappers.DoubleValue) (*wr
 	}
 
 	return s.UnimplementedServiceServer.TestDouble(ctx, in)
+}
+
+func (s *service) TestStream(stream Service_TestStreamServer) error {
+	if s.TestStreamImplementation != nil {
+		return s.TestStreamImplementation(stream)
+	}
+
+	return s.UnimplementedServiceServer.TestStream(stream)
 }
