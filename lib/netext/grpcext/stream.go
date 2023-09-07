@@ -35,7 +35,7 @@ func (s *Stream) ReceiveConverted() (interface{}, error) {
 		return nil, err
 	}
 
-	msg, errConv := s.convert(raw)
+	msg, errConv := convert(s.marshaler, raw)
 	if errConv != nil {
 		return nil, errConv
 	}
@@ -78,10 +78,10 @@ func (s *Stream) receive() (*dynamicpb.Message, error) {
 // {"x":6,"y":4}
 // rather than the desired:
 // {"x":6,"y":4,"z":0}
-func (s *Stream) convert(msg *dynamicpb.Message) (interface{}, error) {
+func convert(marshaler protojson.MarshalOptions, msg *dynamicpb.Message) (interface{}, error) {
 	// TODO(olegbespalov): add the test that checks that message is not nil
 
-	raw, err := s.marshaler.Marshal(msg)
+	raw, err := marshaler.Marshal(msg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal the message: %w", err)
 	}

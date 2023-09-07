@@ -53,7 +53,7 @@ func (s *service) TestBoolean(ctx context.Context, in *wrappers.BoolValue) (*wra
 }
 
 func (s *service) TestDouble(ctx context.Context, in *wrappers.DoubleValue) (*wrappers.DoubleValue, error) {
-	if s.TestBooleanImplementation != nil {
+	if s.TestDoubleImplementation != nil {
 		return s.TestDoubleImplementation(ctx, in)
 	}
 
