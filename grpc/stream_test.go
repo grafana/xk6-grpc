@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/dop251/goja"
 	"github.com/grafana/xk6-grpc/grpc/testutils/grpcservice"
@@ -184,6 +185,101 @@ func TestStream_ErrorHandling(t *testing.T) {
 		"Feature:foo",
 		"Feature:bar",
 		"Code: 13 Message: lorem ipsum",
+	},
+	)
+}
+
+// this test case is checking that everything that server sends
+// after the client finished (client.end called) is delivered to the client
+// and the end event is called
+func TestStream_ReceiveAllServerResponsesAfterEnd(t *testing.T) {
+	t.Parallel()
+
+	ts := newTestState(t)
+
+	stub := &FeatureExplorerStub{}
+
+	savedFeatures := []*grpcservice.Feature{
+		{
+			Name: "foo",
+			Location: &grpcservice.Point{
+				Latitude:  1,
+				Longitude: 2,
+			},
+		},
+		{
+			Name: "bar",
+			Location: &grpcservice.Point{
+				Latitude:  3,
+				Longitude: 4,
+			},
+		},
+	}
+
+	stub.listFeatures = func(rect *grpcservice.Rectangle, stream grpcservice.FeatureExplorer_ListFeaturesServer) error {
+		for _, feature := range savedFeatures {
+			// adding a delay to make server response "slower"
+			time.Sleep(200 * time.Millisecond)
+
+			if err := stream.Send(feature); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
+	grpcservice.RegisterFeatureExplorerServer(ts.httpBin.ServerGRPC, stub)
+
+	replace := func(code string) (goja.Value, error) {
+		return ts.VU.Runtime().RunString(ts.httpBin.Replacer.Replace(code))
+	}
+
+	initString := codeBlock{
+		code: `
+		var client = new grpc.Client();
+		client.load([], "../grpc/testutils/grpcservice/route_guide.proto");`,
+	}
+	vuString := codeBlock{
+		code: `
+		client.connect("GRPCBIN_ADDR");
+		let stream = new grpc.Stream(client, "main.FeatureExplorer/ListFeatures")
+		stream.on('data', function (data) {
+			call('Feature:' + data.name);
+		});
+		stream.on('end', function () {
+			call('End called');
+		});
+
+		stream.write({
+			lo: {
+			  latitude: 1,
+			  longitude: 2,
+			},
+			hi: {
+			  latitude: 1,
+			  longitude: 2,
+			},
+		});
+		stream.end();
+		`,
+	}
+
+	val, err := replace(initString.code)
+	assertResponse(t, initString, err, val, ts)
+
+	ts.ToVUContext()
+
+	val, err = replace(vuString.code)
+
+	ts.EventLoop.WaitOnRegistered()
+
+	assertResponse(t, vuString, err, val, ts)
+
+	assert.Equal(t, ts.callRecorder.Recorded(), []string{
+		"Feature:foo",
+		"Feature:bar",
+		"End called",
 	},
 	)
 }
