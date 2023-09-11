@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dop251/goja"
 	"github.com/grafana/xk6-grpc/grpc/testutils/grpcservice"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
@@ -18,22 +17,18 @@ func TestStream_InvalidHeader(t *testing.T) {
 
 	ts := newTestState(t)
 
-	replace := func(code string) (goja.Value, error) {
-		return ts.VU.Runtime().RunString(ts.httpBin.Replacer.Replace(code))
-	}
-
 	initString := codeBlock{
 		code: `
 		var client = new grpc.Client();
 		client.load([], "../grpc/testdata/grpc_testing/test.proto");`,
 	}
 
-	val, err := replace(initString.code)
+	val, err := ts.Run(initString.code)
 	assertResponse(t, initString, err, val, ts)
 
 	ts.ToVUContext()
 
-	_, err = replace(`
+	_, err = ts.Run(`
 	client.connect("GRPCBIN_ADDR");
 	new grpc.Stream(client, "foo/bar")`)
 
@@ -60,10 +55,6 @@ func TestStream_RequestHeaders(t *testing.T) {
 
 	grpcservice.RegisterFeatureExplorerServer(ts.httpBin.ServerGRPC, stub)
 
-	replace := func(code string) (goja.Value, error) {
-		return ts.VU.Runtime().RunString(ts.httpBin.Replacer.Replace(code))
-	}
-
 	initString := codeBlock{
 		code: `
 		var client = new grpc.Client();
@@ -86,12 +77,12 @@ func TestStream_RequestHeaders(t *testing.T) {
 		`,
 	}
 
-	val, err := replace(initString.code)
+	val, err := ts.Run(initString.code)
 	assertResponse(t, initString, err, val, ts)
 
 	ts.ToVUContext()
 
-	val, err = replace(vuString.code)
+	val, err = ts.Run(vuString.code)
 
 	ts.EventLoop.WaitOnRegistered()
 
@@ -138,10 +129,6 @@ func TestStream_ErrorHandling(t *testing.T) {
 
 	grpcservice.RegisterFeatureExplorerServer(ts.httpBin.ServerGRPC, stub)
 
-	replace := func(code string) (goja.Value, error) {
-		return ts.VU.Runtime().RunString(ts.httpBin.Replacer.Replace(code))
-	}
-
 	initString := codeBlock{
 		code: `
 		var client = new grpc.Client();
@@ -170,22 +157,24 @@ func TestStream_ErrorHandling(t *testing.T) {
 		`,
 	}
 
-	val, err := replace(initString.code)
+	val, err := ts.Run(initString.code)
 	assertResponse(t, initString, err, val, ts)
 
 	ts.ToVUContext()
 
-	val, err = replace(vuString.code)
+	val, err = ts.Run(vuString.code)
 
 	ts.EventLoop.WaitOnRegistered()
 
 	assertResponse(t, vuString, err, val, ts)
 
-	assert.Equal(t, ts.callRecorder.Recorded(), []string{
-		"Feature:foo",
-		"Feature:bar",
-		"Code: 13 Message: lorem ipsum",
-	},
+	assert.Equal(t,
+		[]string{
+			"Feature:foo",
+			"Feature:bar",
+			"Code: 13 Message: lorem ipsum",
+		},
+		ts.callRecorder.Recorded(),
 	)
 }
 
@@ -231,10 +220,6 @@ func TestStream_ReceiveAllServerResponsesAfterEnd(t *testing.T) {
 
 	grpcservice.RegisterFeatureExplorerServer(ts.httpBin.ServerGRPC, stub)
 
-	replace := func(code string) (goja.Value, error) {
-		return ts.VU.Runtime().RunString(ts.httpBin.Replacer.Replace(code))
-	}
-
 	initString := codeBlock{
 		code: `
 		var client = new grpc.Client();
@@ -265,12 +250,12 @@ func TestStream_ReceiveAllServerResponsesAfterEnd(t *testing.T) {
 		`,
 	}
 
-	val, err := replace(initString.code)
+	val, err := ts.Run(initString.code)
 	assertResponse(t, initString, err, val, ts)
 
 	ts.ToVUContext()
 
-	val, err = replace(vuString.code)
+	val, err = ts.Run(vuString.code)
 
 	ts.EventLoop.WaitOnRegistered()
 

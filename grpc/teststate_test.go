@@ -8,6 +8,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/dop251/goja"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
@@ -37,14 +38,6 @@ type testcase struct {
 	setup      func(*httpmultibin.HTTPMultiBin)
 	initString codeBlock // runs in the init context
 	vuString   codeBlock // runs in the vu context
-}
-
-type testState struct {
-	*modulestest.Runtime
-	httpBin      *httpmultibin.HTTPMultiBin
-	samples      chan metrics.SampleContainer
-	logger       logrus.FieldLogger
-	callRecorder *callRecorder
 }
 
 // callRecorder a helper type that records all calls
@@ -78,6 +71,19 @@ func (r *callRecorder) Recorded() []string {
 	result = append(result, r.calls...)
 
 	return result
+}
+
+type testState struct {
+	*modulestest.Runtime
+	httpBin      *httpmultibin.HTTPMultiBin
+	samples      chan metrics.SampleContainer
+	logger       logrus.FieldLogger
+	callRecorder *callRecorder
+}
+
+// Run replaces the httpbin address and runs the code.
+func (ts *testState) Run(code string) (goja.Value, error) {
+	return ts.VU.Runtime().RunString(ts.httpBin.Replacer.Replace(code))
 }
 
 // newTestState creates a new test state.
