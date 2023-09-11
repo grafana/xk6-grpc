@@ -82,9 +82,7 @@ func TestStream_RequestHeaders(t *testing.T) {
 
 	ts.ToVUContext()
 
-	val, err = ts.Run(vuString.code)
-
-	ts.EventLoop.WaitOnRegistered()
+	val, err = ts.RunOnEventLoop(vuString.code)
 
 	assertResponse(t, vuString, err, val, ts)
 
@@ -162,9 +160,7 @@ func TestStream_ErrorHandling(t *testing.T) {
 
 	ts.ToVUContext()
 
-	val, err = ts.Run(vuString.code)
-
-	ts.EventLoop.WaitOnRegistered()
+	val, err = ts.RunOnEventLoop(vuString.code)
 
 	assertResponse(t, vuString, err, val, ts)
 
@@ -255,9 +251,7 @@ func TestStream_ReceiveAllServerResponsesAfterEnd(t *testing.T) {
 
 	ts.ToVUContext()
 
-	val, err = ts.Run(vuString.code)
-
-	ts.EventLoop.WaitOnRegistered()
+	val, err = ts.RunOnEventLoop(vuString.code)
 
 	assertResponse(t, vuString, err, val, ts)
 

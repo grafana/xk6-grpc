@@ -86,6 +86,11 @@ func (ts *testState) Run(code string) (goja.Value, error) {
 	return ts.VU.Runtime().RunString(ts.httpBin.Replacer.Replace(code))
 }
 
+// RunOnEventLoop replaces the httpbin address and run the code on event loop
+func (ts *testState) RunOnEventLoop(code string) (goja.Value, error) {
+	return ts.Runtime.RunOnEventLoop(ts.httpBin.Replacer.Replace(code))
+}
+
 // newTestState creates a new test state.
 func newTestState(t *testing.T) testState {
 	t.Helper()
