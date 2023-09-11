@@ -1,4 +1,4 @@
-package grpc
+package grpc_test
 
 import (
 	"io"
@@ -17,6 +17,8 @@ import (
 	"go.k6.io/k6/lib/testutils/httpmultibin"
 	"go.k6.io/k6/metrics"
 	"gopkg.in/guregu/null.v3"
+
+	xk6grpc "github.com/grafana/xk6-grpc/grpc"
 )
 
 const isWindows = runtime.GOOS == "windows"
@@ -113,7 +115,7 @@ func newTestState(t *testing.T) testState {
 		callRecorder: recorder,
 	}
 
-	m, ok := New().NewModuleInstance(ts.VU).(*ModuleInstance)
+	m, ok := xk6grpc.New().NewModuleInstance(ts.VU).(*xk6grpc.ModuleInstance)
 	require.True(t, ok)
 	require.NoError(t, ts.VU.Runtime().Set("grpc", m.Exports().Named))
 	require.NoError(t, ts.VU.Runtime().Set("call", recorder.Call))
