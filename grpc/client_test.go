@@ -13,7 +13,6 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 
-	"github.com/dop251/goja"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -752,15 +751,11 @@ func TestClient(t *testing.T) {
 				tt.setup(ts.httpBin)
 			}
 
-			replace := func(code string) (goja.Value, error) {
-				return ts.VU.Runtime().RunString(ts.httpBin.Replacer.Replace(code))
-			}
-
-			val, err := replace(tt.initString.code)
+			val, err := ts.Run(tt.initString.code)
 			assertResponse(t, tt.initString, err, val, ts)
 
 			ts.ToVUContext()
-			val, err = replace(tt.vuString.code)
+			val, err = ts.Run(tt.vuString.code)
 			assertResponse(t, tt.vuString, err, val, ts)
 		})
 	}
@@ -962,15 +957,11 @@ func TestClient_TlsParameters(t *testing.T) {
 				tt.setup(ts.httpBin)
 			}
 
-			replace := func(code string) (goja.Value, error) {
-				return ts.VU.Runtime().RunString(ts.httpBin.Replacer.Replace(code))
-			}
-
-			val, err := replace(tt.initString.code)
+			val, err := ts.Run(tt.initString.code)
 			assertResponse(t, tt.initString, err, val, ts)
 
 			ts.ToVUContext()
-			val, err = replace(tt.vuString.code)
+			val, err = ts.Run(tt.vuString.code)
 			assertResponse(t, tt.vuString, err, val, ts)
 		})
 	}
@@ -1063,11 +1054,7 @@ func TestClientLoadProto(t *testing.T) {
 		},
 	}
 
-	replace := func(code string) (goja.Value, error) {
-		return ts.VU.Runtime().RunString(ts.httpBin.Replacer.Replace(code))
-	}
-
-	val, err := replace(tt.initString.code)
+	val, err := ts.Run(tt.initString.code)
 	assertResponse(t, tt.initString, err, val, ts)
 
 	expectedTypes := []string{
