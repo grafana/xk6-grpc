@@ -47,7 +47,7 @@ func TestStream_RequestHeaders(t *testing.T) {
 	ts := newTestState(t)
 
 	var registeredMetadata metadata.MD
-	stub := &FeatureExplorerStub{}
+	stub := &featureExplorerStub{}
 	stub.listFeatures = func(rect *grpcservice.Rectangle, stream grpcservice.FeatureExplorer_ListFeaturesServer) error {
 		// collect metadata from the stream context
 		md, ok := metadata.FromIncomingContext(stream.Context())
@@ -107,7 +107,7 @@ func TestStream_ErrorHandling(t *testing.T) {
 
 	ts := newTestState(t)
 
-	stub := &FeatureExplorerStub{}
+	stub := &featureExplorerStub{}
 
 	savedFeatures := []*grpcservice.Feature{
 		{
@@ -197,7 +197,7 @@ func TestStream_ReceiveAllServerResponsesAfterEnd(t *testing.T) {
 
 	ts := newTestState(t)
 
-	stub := &FeatureExplorerStub{}
+	stub := &featureExplorerStub{}
 
 	savedFeatures := []*grpcservice.Feature{
 		{
@@ -284,16 +284,16 @@ func TestStream_ReceiveAllServerResponsesAfterEnd(t *testing.T) {
 	)
 }
 
-// FeatureExplorerStub is a stub for FeatureExplorerServer
+// featureExplorerStub is a stub for FeatureExplorerServer
 // it has ability to override methods
-type FeatureExplorerStub struct {
+type featureExplorerStub struct {
 	grpcservice.UnimplementedFeatureExplorerServer
 
 	getFeature   func(ctx context.Context, point *grpcservice.Point) (*grpcservice.Feature, error)
 	listFeatures func(rect *grpcservice.Rectangle, stream grpcservice.FeatureExplorer_ListFeaturesServer) error
 }
 
-func (s *FeatureExplorerStub) GetFeature(ctx context.Context, point *grpcservice.Point) (*grpcservice.Feature, error) {
+func (s *featureExplorerStub) GetFeature(ctx context.Context, point *grpcservice.Point) (*grpcservice.Feature, error) {
 	if s.getFeature != nil {
 		return s.getFeature(ctx, point)
 	}
@@ -301,7 +301,7 @@ func (s *FeatureExplorerStub) GetFeature(ctx context.Context, point *grpcservice
 	return nil, status.Errorf(codes.Unimplemented, "method GetFeature not implemented")
 }
 
-func (s *FeatureExplorerStub) ListFeatures(rect *grpcservice.Rectangle, stream grpcservice.FeatureExplorer_ListFeaturesServer) error {
+func (s *featureExplorerStub) ListFeatures(rect *grpcservice.Rectangle, stream grpcservice.FeatureExplorer_ListFeaturesServer) error {
 	if s.listFeatures != nil {
 		return s.listFeatures(rect, stream)
 	}
