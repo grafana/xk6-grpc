@@ -13,10 +13,11 @@ import (
 	"go.k6.io/k6/js/modulestest"
 	"go.k6.io/k6/lib"
 	"go.k6.io/k6/metrics"
+	"google.golang.org/grpc/metadata"
 	"gopkg.in/guregu/null.v3"
 )
 
-func TestParamsInvalidInput(t *testing.T) {
+func TestCallParamsInvalidInput(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -39,6 +40,11 @@ func TestParamsInvalidInput(t *testing.T) {
 			JSON:        `{ timeout: "please" }`,
 			ErrContains: `invalid duration`,
 		},
+		{
+			Name:        "InvalidMetadata",
+			JSON:        `{ metadata: "lorem" }`,
+			ErrContains: `invalid metadata param: must be an object with key-value pairs`,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -56,7 +62,43 @@ func TestParamsInvalidInput(t *testing.T) {
 	}
 }
 
-func TestParamsTimeOutParse(t *testing.T) {
+func TestCallParamsMetadata(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		Name             string
+		JSON             string
+		ExpectedMetadata metadata.MD
+	}{
+		{
+			Name:             "EmptyMetadata",
+			JSON:             `{}`,
+			ExpectedMetadata: metadata.New(nil),
+		},
+		{
+			Name:             "Metadata",
+			JSON:             `{metadata: {foo: "bar", baz: "qux"}}`,
+			ExpectedMetadata: metadata.New(map[string]string{"foo": "bar", "baz": "qux"}),
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+
+		t.Run(tc.Name, func(t *testing.T) {
+			t.Parallel()
+
+			testRuntime, params := newParamsTestRuntime(t, tc.JSON)
+
+			p, err := newCallParams(testRuntime.VU, params)
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.ExpectedMetadata, p.Metadata)
+		})
+	}
+}
+
+func TestCallParamsTimeOutParse(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
