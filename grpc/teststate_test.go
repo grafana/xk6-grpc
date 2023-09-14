@@ -15,6 +15,7 @@ import (
 	"go.k6.io/k6/js/modulestest"
 	"go.k6.io/k6/lib"
 	"go.k6.io/k6/lib/fsext"
+	"go.k6.io/k6/lib/testutils"
 	"go.k6.io/k6/lib/testutils/httpmultibin"
 	"go.k6.io/k6/metrics"
 	"gopkg.in/guregu/null.v3"
@@ -78,6 +79,7 @@ type testState struct {
 	httpBin      *httpmultibin.HTTPMultiBin
 	samples      chan metrics.SampleContainer
 	logger       logrus.FieldLogger
+	loggerHook   *testutils.SimpleLogrusHook
 	callRecorder *callRecorder
 }
 
@@ -114,6 +116,9 @@ func newTestState(t *testing.T) testState {
 	logger.SetLevel(logrus.InfoLevel)
 	logger.Out = io.Discard
 
+	hook := testutils.NewLogHook()
+	logger.AddHook(hook)
+
 	recorder := &callRecorder{
 		calls: make([]string, 0),
 	}
@@ -123,6 +128,7 @@ func newTestState(t *testing.T) testState {
 		httpBin:      tb,
 		samples:      samples,
 		logger:       logger,
+		loggerHook:   hook,
 		callRecorder: recorder,
 	}
 

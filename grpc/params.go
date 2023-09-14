@@ -123,19 +123,21 @@ func (p *callParams) SetSystemTags(state *lib.State, addr string, methodName str
 type connectParams struct {
 	IsPlaintext           bool
 	UseReflectionProtocol bool
+	ReflectionMetadata    metadata.MD
 	Timeout               time.Duration
 	MaxReceiveSize        int64
 	MaxSendSize           int64
 	TLS                   map[string]interface{}
 }
 
-func newConnectParams(vu modules.VU, input goja.Value) (*connectParams, error) {
+func newConnectParams(vu modules.VU, input goja.Value) (*connectParams, error) { //nolint:gocognit
 	result := &connectParams{
 		IsPlaintext:           false,
 		UseReflectionProtocol: false,
 		Timeout:               time.Minute,
 		MaxReceiveSize:        0,
 		MaxSendSize:           0,
+		ReflectionMetadata:    metadata.New(nil),
 	}
 
 	if common.IsNullish(input) {
@@ -167,6 +169,13 @@ func newConnectParams(vu modules.VU, input goja.Value) (*connectParams, error) {
 			if !ok {
 				return result, fmt.Errorf("invalid reflect value: '%#v', it needs to be boolean", v)
 			}
+		case "reflectMetadata":
+			md, err := newMetadata(params.Get(k))
+			if err != nil {
+				return result, fmt.Errorf("invalid reflectMetadata param: %w", err)
+			}
+
+			result.ReflectionMetadata = md
 		case "maxReceiveSize":
 			var ok bool
 			result.MaxReceiveSize, ok = v.(int64)

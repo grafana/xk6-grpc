@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -257,6 +258,9 @@ func (c *Client) Connect(addr string, params goja.Value) (bool, error) {
 	if !p.UseReflectionProtocol {
 		return true, nil
 	}
+
+	ctx = metadata.NewOutgoingContext(ctx, p.ReflectionMetadata)
+
 	fdset, err := c.conn.Reflect(ctx)
 	if err != nil {
 		return false, err
