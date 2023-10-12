@@ -3,14 +3,14 @@ module github.com/grafana/xk6-grpc
 go 1.19
 
 require (
-	github.com/dop251/goja v0.0.0-20230828202809-3dbe69dd2b8e
+	github.com/dop251/goja v0.0.0-20230919151941-fc55792775de
 	github.com/golang/protobuf v1.5.3
 	github.com/jhump/protoreflect v1.15.2
 	github.com/mstoykov/k6-taskqueue-lib v0.1.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/afero v1.1.2
 	github.com/stretchr/testify v1.8.4
-	go.k6.io/k6 v0.46.1-0.20230829114542-fc1900e8c3c6
+	go.k6.io/k6 v0.47.0
 	google.golang.org/grpc v1.58.3
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/guregu/null.v3 v3.3.0
@@ -36,12 +36,11 @@ require (
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/go-redis/redis/v8 v8.11.5 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.4-0.20211119122758-180fcef48034+incompatible // indirect
-	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/pprof v0.0.0-20230207041349-798e818bf904 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
-	github.com/grafana/xk6-browser v1.0.2 // indirect
-	github.com/grafana/xk6-output-prometheus-remote v0.2.3 // indirect
+	github.com/grafana/xk6-browser v1.1.0 // indirect
+	github.com/grafana/xk6-output-prometheus-remote v0.3.1 // indirect
 	github.com/grafana/xk6-redis v0.1.1 // indirect
 	github.com/grafana/xk6-timers v0.1.2 // indirect
 	github.com/grafana/xk6-webcrypto v0.1.0 // indirect
@@ -54,16 +53,16 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
-	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
+	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/mccutchen/go-httpbin v1.1.2-0.20190116014521-c5cb2f4802fa // indirect
 	github.com/mstoykov/atlas v0.0.0-20220811071828-388f114305dd // indirect
 	github.com/mstoykov/envconfig v1.4.1-0.20220114105314-765c6d8c76f1 // indirect
 	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/prometheus/client_golang v1.14.1-0.20221122130035-8b6e68085b10 // indirect
-	github.com/prometheus/client_model v0.3.0 // indirect
-	github.com/prometheus/common v0.37.0 // indirect
-	github.com/prometheus/procfs v0.8.0 // indirect
+	github.com/prometheus/client_golang v1.16.0 // indirect
+	github.com/prometheus/client_model v0.4.0 // indirect
+	github.com/prometheus/common v0.42.0 // indirect
+	github.com/prometheus/procfs v0.10.1 // indirect
 	github.com/serenize/snaker v0.0.0-20201027110005-a7ad2135616e // indirect
 	github.com/spf13/cobra v1.4.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
