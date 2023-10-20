@@ -16,9 +16,11 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+
 	"gopkg.in/guregu/null.v3"
 
 	"github.com/golang/protobuf/ptypes/any"
+	_struct "github.com/golang/protobuf/ptypes/struct"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -822,6 +824,63 @@ func TestClient(t *testing.T) {
 				let respDouble = client.invoke("grpc.wrappers.testing.Service/TestDouble", "2.7")
 				if (respDouble.message !== 5.4) {
 					throw new Error("expected to get '5.4', but got a " + respDouble.message)
+				}
+			`,
+			},
+		},
+		{
+			name: "ValueReflection",
+			setup: func(hb *httpmultibin.HTTPMultiBin) {
+				reflection.Register(hb.ServerGRPC)
+
+				srv := wrappers_testing.Register(hb.ServerGRPC)
+
+				srv.TestValueImplementation = func(_ context.Context, in *_struct.Value) (*_struct.Value, error) {
+					if in.GetNumberValue() == 12 {
+						return &_struct.Value{
+							Kind: &_struct.Value_NumberValue{
+								NumberValue: 42,
+							},
+						}, nil
+					}
+
+					if in.GetStringValue() != "" {
+						return &_struct.Value{
+							Kind: &_struct.Value_StringValue{
+								StringValue: "hey " + in.GetStringValue(),
+							},
+						}, nil
+					}
+
+					return &_struct.Value{
+						Kind: &_struct.Value_StringValue{
+							StringValue: "I don't know what to answer",
+						},
+					}, nil
+				}
+			},
+			initString: codeBlock{
+				code: `
+				const client = new grpc.Client();
+				`,
+			},
+			vuString: codeBlock{
+				code: `
+				client.connect("GRPCBIN_ADDR", {reflect: true});
+
+				let respString = client.invoke("grpc.wrappers.testing.Service/TestValue", "John")
+				if (respString.message !== "hey John") {
+					throw new Error("expected to get 'hey John', but got a " + respString.message)
+				}
+
+				let respNumber = client.invoke("grpc.wrappers.testing.Service/TestValue", 12)
+				if (respNumber.message !== 42) {
+					throw new Error("expected to get '42', but got a " + respNumber.message)
+				}
+
+				let respBool = client.invoke("grpc.wrappers.testing.Service/TestValue", false)
+				if (respBool.message !== "I don't know what to answer") {
+					throw new Error("expected to get 'I don't know what to answer', but got a " + respBool.message)
 				}
 			`,
 			},

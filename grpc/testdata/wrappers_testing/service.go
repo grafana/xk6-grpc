@@ -3,6 +3,7 @@ package wrappers_testing
 import (
 	context "context"
 
+	_struct "github.com/golang/protobuf/ptypes/struct"
 	wrappers "github.com/golang/protobuf/ptypes/wrappers"
 	grpc "google.golang.org/grpc"
 )
@@ -25,6 +26,7 @@ type service struct {
 	TestIntegerImplementation func(context.Context, *wrappers.Int64Value) (*wrappers.Int64Value, error)
 	TestBooleanImplementation func(context.Context, *wrappers.BoolValue) (*wrappers.BoolValue, error)
 	TestDoubleImplementation  func(context.Context, *wrappers.DoubleValue) (*wrappers.DoubleValue, error)
+	TestValueImplementation   func(context.Context, *_struct.Value) (*_struct.Value, error)
 	TestStreamImplementation  func(Service_TestStreamServer) error
 }
 
@@ -58,6 +60,14 @@ func (s *service) TestDouble(ctx context.Context, in *wrappers.DoubleValue) (*wr
 	}
 
 	return s.UnimplementedServiceServer.TestDouble(ctx, in)
+}
+
+func (s *service) TestValue(ctx context.Context, in *_struct.Value) (*_struct.Value, error) {
+	if s.TestValueImplementation != nil {
+		return s.TestValueImplementation(ctx, in)
+	}
+
+	return s.UnimplementedServiceServer.TestValue(ctx, in)
 }
 
 func (s *service) TestStream(stream Service_TestStreamServer) error {
