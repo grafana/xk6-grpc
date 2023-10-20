@@ -4,6 +4,7 @@ package wrappers_testing
 
 import (
 	context "context"
+	_struct "github.com/golang/protobuf/ptypes/struct"
 	wrappers "github.com/golang/protobuf/ptypes/wrappers"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
@@ -23,6 +24,7 @@ type ServiceClient interface {
 	TestInteger(ctx context.Context, in *wrappers.Int64Value, opts ...grpc.CallOption) (*wrappers.Int64Value, error)
 	TestBoolean(ctx context.Context, in *wrappers.BoolValue, opts ...grpc.CallOption) (*wrappers.BoolValue, error)
 	TestDouble(ctx context.Context, in *wrappers.DoubleValue, opts ...grpc.CallOption) (*wrappers.DoubleValue, error)
+	TestValue(ctx context.Context, in *_struct.Value, opts ...grpc.CallOption) (*_struct.Value, error)
 	TestStream(ctx context.Context, opts ...grpc.CallOption) (Service_TestStreamClient, error)
 }
 
@@ -64,6 +66,15 @@ func (c *serviceClient) TestBoolean(ctx context.Context, in *wrappers.BoolValue,
 func (c *serviceClient) TestDouble(ctx context.Context, in *wrappers.DoubleValue, opts ...grpc.CallOption) (*wrappers.DoubleValue, error) {
 	out := new(wrappers.DoubleValue)
 	err := c.cc.Invoke(ctx, "/grpc.wrappers.testing.Service/TestDouble", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *serviceClient) TestValue(ctx context.Context, in *_struct.Value, opts ...grpc.CallOption) (*_struct.Value, error) {
+	out := new(_struct.Value)
+	err := c.cc.Invoke(ctx, "/grpc.wrappers.testing.Service/TestValue", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -112,6 +123,7 @@ type ServiceServer interface {
 	TestInteger(context.Context, *wrappers.Int64Value) (*wrappers.Int64Value, error)
 	TestBoolean(context.Context, *wrappers.BoolValue) (*wrappers.BoolValue, error)
 	TestDouble(context.Context, *wrappers.DoubleValue) (*wrappers.DoubleValue, error)
+	TestValue(context.Context, *_struct.Value) (*_struct.Value, error)
 	TestStream(Service_TestStreamServer) error
 	mustEmbedUnimplementedServiceServer()
 }
@@ -131,6 +143,9 @@ func (UnimplementedServiceServer) TestBoolean(context.Context, *wrappers.BoolVal
 }
 func (UnimplementedServiceServer) TestDouble(context.Context, *wrappers.DoubleValue) (*wrappers.DoubleValue, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TestDouble not implemented")
+}
+func (UnimplementedServiceServer) TestValue(context.Context, *_struct.Value) (*_struct.Value, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TestValue not implemented")
 }
 func (UnimplementedServiceServer) TestStream(Service_TestStreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method TestStream not implemented")
@@ -220,6 +235,24 @@ func _Service_TestDouble_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Service_TestValue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(_struct.Value)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ServiceServer).TestValue(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/grpc.wrappers.testing.Service/TestValue",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ServiceServer).TestValue(ctx, req.(*_struct.Value))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Service_TestStream_Handler(srv interface{}, stream grpc.ServerStream) error {
 	return srv.(ServiceServer).TestStream(&serviceTestStreamServer{stream})
 }
@@ -268,6 +301,10 @@ var Service_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TestDouble",
 			Handler:    _Service_TestDouble_Handler,
+		},
+		{
+			MethodName: "TestValue",
+			Handler:    _Service_TestValue_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
