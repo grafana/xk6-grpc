@@ -265,14 +265,14 @@ func (s *stream) writeData(wg *sync.WaitGroup) {
 		for {
 			wch = nil // this way if nothing to read it will just block
 			if len(queue) > 0 {
-				msg = queue[0]
+				msg = queue[0] //nolint:gosec //false positive
 				wch = writeChannel
 			}
 			select {
 			case msg = <-s.writeQueueCh:
 				queue = append(queue, msg)
 			case wch <- msg:
-				queue = queue[:copy(queue, queue[1:])]
+				queue = queue[:copy(queue, queue[1:])] //nolint:gosec //false positive
 
 			case <-s.done:
 				return
