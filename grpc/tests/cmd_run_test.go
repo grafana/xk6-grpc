@@ -7,12 +7,12 @@ import (
 
 	_ "github.com/grafana/xk6-grpc"
 	"github.com/grafana/xk6-grpc/grpc/testutils"
-	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.k6.io/k6/cmd"
 	k6Tests "go.k6.io/k6/cmd/tests"
 	"go.k6.io/k6/errext/exitcodes"
+	"go.k6.io/k6/lib/fsext"
 )
 
 func getSingleFileTestState(tb testing.TB, script string, cliFlags []string, expExitCode exitcodes.ExitCode) *k6Tests.GlobalTestState {
@@ -21,7 +21,7 @@ func getSingleFileTestState(tb testing.TB, script string, cliFlags []string, exp
 	}
 
 	ts := k6Tests.NewGlobalTestState(tb)
-	require.NoError(tb, afero.WriteFile(ts.FS, filepath.Join(ts.Cwd, "test.js"), []byte(script), 0o644))
+	require.NoError(tb, fsext.WriteFile(ts.FS, filepath.Join(ts.Cwd, "test.js"), []byte(script), 0o644))
 	ts.CmdArgs = append(append([]string{"k6", "run"}, cliFlags...), "test.js")
 	ts.ExpectedExitCode = int(expExitCode)
 
@@ -124,7 +124,7 @@ func TestGRPCInputOutput(t *testing.T) {
 				"GRPC_ADDR":       tb.Addr,
 				"GRPC_PROTO_PATH": "./proto.proto",
 			}
-			require.NoError(t, afero.WriteFile(ts.FS, filepath.Join(ts.Cwd, "proto.proto"), proto, 0o644))
+			require.NoError(t, fsext.WriteFile(ts.FS, filepath.Join(ts.Cwd, "proto.proto"), proto, 0o644))
 
 			cmd.ExecuteWithGlobalState(ts.GlobalState)
 

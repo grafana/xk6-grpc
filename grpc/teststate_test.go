@@ -10,7 +10,6 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"go.k6.io/k6/js/modulestest"
 	"go.k6.io/k6/lib"
@@ -104,13 +103,13 @@ func newTestState(t *testing.T) testState {
 
 	cwd, err := os.Getwd() //nolint:forbidigo
 	require.NoError(t, err)
-	fs := afero.NewOsFs()
+	fs := fsext.NewOsFs()
 
 	if isWindows {
 		fs = fsext.NewTrimFilePathSeparatorFs(fs)
 	}
 	testRuntime.VU.InitEnvField.CWD = &url.URL{Path: cwd}
-	testRuntime.VU.InitEnvField.FileSystems = map[string]afero.Fs{"file": fs}
+	testRuntime.VU.InitEnvField.FileSystems = map[string]fsext.Fs{"file": fs}
 
 	logger := logrus.New()
 	logger.SetLevel(logrus.InfoLevel)
