@@ -86,7 +86,7 @@ func TestConnInvokeInvalid(t *testing.T) {
 	var (
 		// valid arguments
 		ctx        = context.Background()
-		url        = "not-empty-url-for-method" //nolint:gosec //false positive
+		url        = "not-empty-url-for-method"
 		md         = metadata.New(nil)
 		methodDesc = methodFromProto("SayHello")
 		payload    = []byte(`{"greeting":"test"}`)
