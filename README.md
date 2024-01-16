@@ -1,5 +1,8 @@
 # xk6-grpc
 
+> [!WARNING]  
+> Starting k6 version v0.49 the code of the `k6/x/grpc` extension is part of the `k6/net/grpc` of the [main k6 repository](https://github.com/grafana/k6). Please contribute and [open issues there](https://github.com/grafana/k6/issues). This repository is no longer maintained.
+
 This extension is re-designing of the k6's GRPC module that also should bring new features like GRPC streaming (it's available in the k6 as `k6/experimental/grpc`).
 
 The extension code copied from the original k6's GRPC module. The module documentation is available [here](https://k6.io/docs/javascript-api/k6-experimental/grpc/).
